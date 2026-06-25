@@ -26,4 +26,7 @@ COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 USER nextjs
 EXPOSE 3000
+# Liveness/readiness: confirm the server actually serves HTTP, not just that the process is up.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1
 CMD ["node", "server.js"]

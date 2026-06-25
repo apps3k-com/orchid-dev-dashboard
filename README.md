@@ -63,8 +63,8 @@ pnpm test              # vitest
 
 ## Contributing
 
-Conventional Commits; work on `feature/*` branches; PRs target `main` and link an issue
-(`Closes #N`). CI must be green and the CodeRabbit review resolved before merge. The UI is
+Conventional Commits; work on short-lived `feature/*` (or `fix/*`, `chore/*`, `docs/*`)
+branches; PRs target `main` and link an issue (`Closes #N`). CI must be green and the CodeRabbit review resolved before merge. The UI is
 built **exclusively from shadcn/ui + shadcnstudio.com blocks** — see `AGENTS.md`.
 
 ## License

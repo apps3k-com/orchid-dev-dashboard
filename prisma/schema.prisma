@@ -17,7 +17,8 @@ datasource db {
 /// A GitHub organization (or user) the installed App can manage. CACHE.
 model Org {
   id             String   @id @default(cuid())
-  login          String   @unique
+  githubId       Int      @unique // immutable GitHub account id; stable across renames — the upsert key
+  login          String   @unique // mutable display handle (changes on rename)
   name           String?
   installationId Int?     @unique
   avatarUrl      String?
@@ -29,10 +30,11 @@ model Org {
 /// A repository within a managed org. CACHE.
 model Repo {
   id            String   @id @default(cuid())
+  githubId      Int      @unique // immutable GitHub repo id; stable across rename/transfer — the upsert key
   org           Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId         String
   name          String
-  nameWithOwner String   @unique
+  nameWithOwner String   @unique // mutable (changes on rename/transfer)
   defaultBranch String   @default("main")
   isArchived    Boolean  @default(false)
   isPrivate     Boolean  @default(false)

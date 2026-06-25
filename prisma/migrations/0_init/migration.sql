@@ -4,6 +4,7 @@ CREATE SCHEMA IF NOT EXISTS "public";
 -- CreateTable
 CREATE TABLE "Org" (
     "id" TEXT NOT NULL,
+    "githubId" INTEGER NOT NULL,
     "login" TEXT NOT NULL,
     "name" TEXT,
     "installationId" INTEGER,
@@ -17,6 +18,7 @@ CREATE TABLE "Org" (
 -- CreateTable
 CREATE TABLE "Repo" (
     "id" TEXT NOT NULL,
+    "githubId" INTEGER NOT NULL,
     "orgId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "nameWithOwner" TEXT NOT NULL,
@@ -68,10 +70,16 @@ CREATE TABLE "SyncState" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Org_githubId_key" ON "Org"("githubId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Org_login_key" ON "Org"("login");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Org_installationId_key" ON "Org"("installationId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Repo_githubId_key" ON "Repo"("githubId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Repo_nameWithOwner_key" ON "Repo"("nameWithOwner");

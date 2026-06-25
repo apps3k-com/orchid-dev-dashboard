@@ -39,3 +39,5 @@ jobs:
         run: pnpm test
       - name: Docstring coverage (>= 80%)
         run: pnpm run docstring:coverage
+      - name: Production build
+        run: pnpm run build
