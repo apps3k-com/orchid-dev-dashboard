@@ -1,82 +1,72 @@
-# apps3k workflow-template
+# Orchid — The Developer Dashboard
 
-Canonical, **single source of truth** for the apps3k common development workflow
-("Projektmigration Mai 2026"). Every active apps3k repo converges on this standard;
-the reusable building blocks live here and are copied + adapted per repo.
+Open-source, self-hostable **mission control for many GitHub repositories**. Stop jumping
+repo to repo: see all your pull requests by status, your GitHub Projects, your per-repo
+module and org-wide product taxonomies, and your agent hooks — and **provision automations**
+(auto-add issues to a Project, set status on transitions, Epic↔sub-issue sync) — from one
+place.
 
-> **Maintenance policy.** This repo is the source. When a rule or file changes
-> here, propagate it to the adopting repos (and update the docs in the same
-> change). Keep this README and `docs/ADOPTION.md` in sync — out-of-date template
-> docs are worse than none.
+> Status: **early development** (v1 in progress). Repo: `apps3k-com/orchid-dev-dashboard`.
 
-## The standard
+## Why
 
-1. **Org** `github.com/apps3k-com`.
-2. **Branching:** main-only. `feature/<scope>` from `main` → PR to `main`. No
-   dev/staging/preview branches. `staging`/`production` are GitHub Environments.
-3. **Versioning:** `release-please` on `main` (versions, changelog, tags, releases).
-4. **Feature flags:** GrowthBook — central abstraction, ENV-only config, safe
-   defaults, ≥1 real flag, tested on/off/unavailable. Production deploy ≠ activation.
-5. **Secrets:** `.env` via 1Password — **exactly one** repo-scoped
-   `OP_SERVICE_ACCOUNT_TOKEN` per repo (least privilege); never in code/logs/memory.
-   See [`docs/agents/secrets.md`](docs/agents/secrets.md).
-6. **Agent instructions:** `AGENTS.md` (canonical, lean) + `CLAUDE.md` (imports it
-   via `@AGENTS.md`); detail overflows to `docs/agents/*`. Same effect for Claude
-   Code and Codex.
-7. **Enforcement hooks:** provider-neutral `.claude/hooks/*` wired from both
-   `.claude/settings.json` and `.codex/hooks.json`.
-8. **Review:** CodeRabbit reviews PRs to `main`, configured at **org level** (apps3k org
-   settings); repos ship **no** `.coderabbit.yaml` unless a deliberate, selective override.
-9. **Project management:** GitHub Projects (org Project) — issues + native sub-issues;
-   the PR links its issue (`Closes #N`). See [`docs/github-projects.md`](docs/github-projects.md).
-10. **Quality gate:** docstring coverage ≥ 80 % (`scripts/docstring-coverage.mjs`).
+Teams running a shared GitHub-Projects + agent workflow across many repos spend a lot of time
+context-switching to maintain taxonomies, watch PRs, wire Project automations, and keep agent
+hooks in sync. Orchid is the control plane on top of that workflow.
 
-## What's in here
+## Features (v1, in progress)
 
-| Path | Purpose |
-|---|---|
-| `release-please-config.json`, `.release-please-manifest.json`, `.github/workflows/release-please.yml` | release-please (single-package node default; see ADOPTION for monorepo/subdir/non-node) |
-| `.github/workflows/ci.yml` | PR gate: typecheck → tests → docstring-coverage (Bun default; swap per package manager) |
-| `.claude/hooks/*.sh`, `.claude/settings.json`, `.codex/hooks.json` | Provider-neutral workflow hooks (block via exit 2 + stderr → Claude **and** Codex) |
-| `AGENTS.md`, `CLAUDE.md`, `docs/agents/` | Lean agent instructions + overflow pattern |
-| `docs/feature-flags.md`, `templates/feature-flags/*.ts` | GrowthBook abstraction (server + client) |
-| `docs/github-projects.md`, `templates/github/labels.yml`, `scripts/github/*.mjs`, `.github/workflows/project-epic-sync.yml` | GitHub Projects taxonomy + label sync + Epic↔sub-issue automation |
-| `scripts/docstring-coverage.mjs` | Docstring-coverage gate (TypeScript compiler API) |
-| `.env.example`, `docs/agents/secrets.md` | The one-`OP_SERVICE_ACCOUNT_TOKEN`-per-repo secrets standard + 1Password local-env-file mechanics |
-| `docs/ADOPTION.md` | Step-by-step per-repo adoption checklist |
+- **Cross-repo PR board** grouped by status (draft / changes-requested / approved /
+  checks-failing / ready / blocked), with CodeRabbit state.
+- **GitHub Projects** overview — items by Status, repo links.
+- **Module editor** (per repo, writes `.github/modules.yaml` via PR) and **Product editor**
+  (org-wide).
+- **Automation provisioning** — install/update/remove parametrized GitHub Actions workflows
+  (Epic-sync, auto-add-to-project, issue-status-on-transition) via PR.
+- **Agent-hooks overview** — drift of each repo's `.claude`/`.codex` hooks vs a canonical
+  template repo.
 
-> **Actions are disabled on this repo.** It ships templates, not an app — the
-> `.github/workflows/*` here are copy-paste sources that would otherwise fail
-> against this repo (no `package.json`). CodeRabbit (a GitHub App, not Actions)
-> still reviews PRs here. Adopting repos enable Actions normally.
+Everything Orchid writes to a repo goes through a **feature branch → pull request** (it never
+pushes to a default branch). The one exception is the org-wide `PRODUCTS` variable.
 
-## Hook configuration
+## Stack
 
-Hooks read env (with defaults): `PROTECTED_BRANCH` (default `main`),
-`WORKFLOW_REQUIRE_ISSUE_REF` (default `true`). The latter is read only by
-`pr-validate.sh`: it requires the PR body to link its issue with a closing keyword
-(`Closes`/`Fixes`/`Resolves` `#N`); only an inline `--body`/`-b` is inspected (file/editor
-bodies fall through to a reminder); set `false` to drop the check. The hooks block direct
-commit/push/merge to the protected branch, force pushes and `gh pr merge`, and inject the
-workflow rules at session start. After a PR is opened they make the **CodeRabbit loop
-mandatory** — `pr-coderabbit-loop.sh` (reminder on `gh pr create`) plus a Stop guard
-`coderabbit-loop-guard.sh` that blocks finishing while the branch's PR has unreviewed or
-unresolved CodeRabbit feedback (fail-open; escape with `WORKFLOW_SKIP_CR_LOOP=1`).
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 + shadcn/ui · Prisma 6 +
+Postgres · graphile-worker (Postgres-backed jobs) · Octokit. Self-contained: the bundle is
+just **the app + Postgres** — no external Inngest/n8n required.
 
-## CodeRabbit — org-level config
+## Quick start (self-host)
 
-CodeRabbit is configured **once at the org level** (apps3k org settings) and applies to
-every repo. **Repos do not ship a `.coderabbit.yaml`** — a repo-level file overrides the
-org config, so add one only as a deliberate, selective override.
+```bash
+git clone https://github.com/apps3k-com/orchid-dev-dashboard
+cd orchid-dev-dashboard
+cp .env.example .env        # fill in the GitHub App + session values (see below)
+docker compose up --build   # starts Postgres, runs migrations, starts the app on :3000
+```
 
-If you ever add an override, note: an invalid key makes CodeRabbit **silently fall back to
-defaults** (the whole file is ignored) — validate against the official schema. Common
-mistakes: `tools`/`path_instructions` belong under `reviews` (not top-level);
-`auto_review.base_branches` (not `branches`); `tone_instructions` ≤ 250 chars;
-`knowledge_base.learnings` has only `scope`; `pre_merge_checks.description` has only
-`mode` (use `custom_checks` for custom rules).
+Then open <http://localhost:3000/setup> and follow the onboarding: create a GitHub App from
+the provided manifest, install it on your org(s), and sign in with GitHub.
 
-## Adopting
+The GitHub App needs: **Contents RW, Issues RW, Pull requests RW, Projects (org) RW, Actions
+Variables RW, Members R, Metadata R**, with user authorization (OAuth) enabled. Details in
+[`docs/setup.md`](docs/setup.md) (added with the onboarding increment).
 
-See [`docs/ADOPTION.md`](docs/ADOPTION.md). Reference instance: **apps3k-website**
-(the pilot), validated end-to-end (CI green, CodeRabbit active, GrowthBook wired).
+## Development
+
+```bash
+pnpm install
+pnpm prisma:dev        # apply migrations to a local Postgres (set DATABASE_URL)
+pnpm dev               # http://localhost:3000
+pnpm check             # lint + typecheck
+pnpm test              # vitest
+```
+
+## Contributing
+
+Conventional Commits; work on `feature/*` branches; PRs target `main` and link an issue
+(`Closes #N`). CI must be green and the CodeRabbit review resolved before merge. The UI is
+built **exclusively from shadcn/ui + shadcnstudio.com blocks** — see `AGENTS.md`.
+
+## License
+
+MIT.

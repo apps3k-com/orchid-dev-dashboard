@@ -1,13 +1,9 @@
 # PR gate for pull requests targeting `main`. Offline checks only — NO production
-# secrets. Data-driven / full builds and deploys happen on the platform, not here.
+# secrets. Full builds / deploys happen on the platform, not here.
 #
-# Customize per repo:
-#   - working-directory: set to the app dir for a monorepo (e.g. apps/website).
-#   - package manager: this template uses Bun; for npm/pnpm swap the setup +
-#     install/run steps (npm ci; npm run ...). Keep the four gates below.
-#   - Gates (mandatory): typecheck/lint, unit tests, docstring-coverage >= 80%.
-#   - Actions are pinned to commit SHAs (supply-chain; CodeRabbit blanket policy).
-#     Keep the pins — the `# vN` trailing comment lets Dependabot bump them.
+# Gates (mandatory): typecheck+lint, unit tests, docstring-coverage >= 80%.
+# Actions are pinned to commit SHAs (supply-chain); the `# vN` comment lets
+# Dependabot bump them. Prisma client is generated before typecheck (tsc needs it).
 name: CI
 
 on:
@@ -24,19 +20,22 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: .          # set to the app subdir for monorepos
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
+        with:
+          node-version: 22
+          cache: pnpm
       - name: Install dependencies
-        run: bun install --frozen-lockfile
-      - name: Typecheck / lint
-        run: bun run check            # e.g. astro check / tsc --noEmit / eslint
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm exec prisma generate
+      - name: Typecheck + lint
+        run: pnpm run check
       - name: Unit tests
-        run: bun test
+        run: pnpm test
       - name: Docstring coverage (>= 80%)
-        run: bun run docstring:coverage
+        run: pnpm run docstring:coverage
