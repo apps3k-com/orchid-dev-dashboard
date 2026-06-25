@@ -70,6 +70,21 @@ model Session {
   @@index([userId])
 }
 
+/// Singleton GitHub App credentials for this instance, created by the /setup manifest flow
+/// (or seeded from env). Secrets are stored ENCRYPTED at rest (AES-256-GCM; key from
+/// APP_ENCRYPTION_KEY or SESSION_SECRET). Exactly one row (id = 1). APP (config).
+model AppConfig {
+  id               Int      @id @default(1)
+  appId            Int
+  slug             String?
+  clientId         String
+  privateKeyEnc    String // encrypted PEM (iv:tag:ciphertext, base64)
+  clientSecretEnc  String // encrypted OAuth client secret
+  webhookSecretEnc String? // encrypted webhook secret (optional until webhooks/v2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
 /// Per-resource sync cursor/last-run bookkeeping for the worker. APP.
 model SyncState {
   id        String   @id @default(cuid())
