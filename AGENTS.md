@@ -1,10 +1,13 @@
-# AGENTS.md — <REPO>
+# AGENTS.md — Orchid (orchid-dev-dashboard)
 
 > **No hallucination.** Every assumption, plan, review and diagnosis is verified
 > against the real codebase, the live database and connected third-party systems —
 > never guessed. If a source is missing, **ask** instead of inventing.
 
-<REPO> — <one line: stack, runtime, deploy target>. Repo: `apps3k-com/<REPO>`.
+Orchid — open-source, self-hostable multi-repo & GitHub-Projects mission control. Stack:
+Next.js 16 (App Router) + React 19 + TypeScript + Tailwind v4/shadcn + Prisma 6 + Postgres +
+graphile-worker + Octokit; ships as a lean Docker bundle (app + Postgres). Public, MIT. Repo:
+`apps3k-com/orchid-dev-dashboard`.
 
 ## Core rules (apps3k common workflow)
 
@@ -43,10 +46,21 @@
 - **Docstring coverage >= 80%.**
 - The PR to `main` is merged by the owner, not the agent.
 
-## Commands (<app dir>)
+## UI — shadcn / shadcnstudio only (hard rule)
 
-- `<dev / dev:env>` · `<build>` · `<check / typecheck>` · `<test>` ·
-  `<docstring:coverage>`
+- The interface is composed **exclusively from shadcn/ui + blocks from
+  https://shadcnstudio.com** (a Pro license is available). **Never write custom CSS that
+  deviates from these blocks/components without an explicit explanation and the owner's
+  approval.** Use Tailwind utilities + the theme tokens in `src/app/globals.css`; add
+  primitives via `pnpm dlx shadcn@latest add …` or compose shadcnstudio blocks.
+- **Write-back safety:** Orchid edits *other* repos only via feature branch → PR (never a
+  direct push to a default branch). The sole non-PR write is the `PRODUCTS` org variable.
+
+## Commands
+
+- `pnpm dev` · `pnpm build` · `pnpm check` (lint + typecheck) · `pnpm test` ·
+  `pnpm docstring:coverage` · `pnpm prisma:dev` (local migrations) ·
+  `docker compose up --build` (full self-host bundle).
 
 ## Detail references (read on demand — do not duplicate here)
 

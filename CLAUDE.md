@@ -1,4 +1,4 @@
-# CLAUDE.md — <REPO>
+# CLAUDE.md — Orchid (orchid-dev-dashboard)
 
 The binding working rules live in **`AGENTS.md`** and apply equally to Claude Code
 and Codex. This file imports them so there is a single source of truth (no drift).

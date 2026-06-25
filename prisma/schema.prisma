@@ -1,0 +1,81 @@
+// Orchid — Prisma schema.
+// Postgres is a CACHE of GitHub state (refreshed by the worker) plus APP state
+// (users/sessions/sync cursors) and SOURCE-OF-TRUTH-PROXY rows (drafts/audit) for
+// the writes Orchid performs back to GitHub. GitHub remains authoritative after a
+// write lands via PR. Models are added per increment; this initial slice covers
+// orgs/repos and app/session state so the scaffold migrates and builds.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// A GitHub organization (or user) the installed App can manage. CACHE.
+model Org {
+  id             String   @id @default(cuid())
+  githubId       Int      @unique // immutable GitHub account id; stable across renames — the upsert key
+  login          String   @unique // mutable display handle (changes on rename)
+  name           String?
+  installationId Int?     @unique
+  avatarUrl      String?
+  repos          Repo[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+/// A repository within a managed org. CACHE.
+model Repo {
+  id            String   @id @default(cuid())
+  githubId      Int      @unique // immutable GitHub repo id; stable across rename/transfer — the upsert key
+  org           Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId         String
+  name          String
+  nameWithOwner String   @unique // mutable (changes on rename/transfer)
+  defaultBranch String   @default("main")
+  isArchived    Boolean  @default(false)
+  isPrivate     Boolean  @default(false)
+  url           String?
+  pushedAt      DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([orgId])
+}
+
+/// A human who signs in via GitHub OAuth (gated to managed-org membership). APP.
+model User {
+  id        String    @id @default(cuid())
+  githubId  Int       @unique
+  login     String
+  name      String?
+  avatarUrl String?
+  email     String?
+  sessions  Session[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+/// A login session (httpOnly cookie carries the id). APP.
+model Session {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// Per-resource sync cursor/last-run bookkeeping for the worker. APP.
+model SyncState {
+  id        String   @id @default(cuid())
+  resource  String   @unique // e.g. "pulls", "projects:<org>", "taxonomy:<repo>"
+  cursor    String?
+  lastRunAt DateTime?
+  lastError String?
+  updatedAt DateTime @updatedAt
+}

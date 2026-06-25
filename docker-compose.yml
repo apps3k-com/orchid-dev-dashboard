@@ -1,0 +1,49 @@
+# Orchid — self-hosted bundle. `docker compose up` brings up Postgres, applies migrations,
+# then starts the app. Copy .env.example → .env and fill the GitHub App / OAuth values first.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: orchid
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orchid}
+      POSTGRES_DB: orchid
+    volumes:
+      - orchid-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orchid -d orchid"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  migrate:
+    build:
+      context: .
+      target: build
+    command: pnpm exec prisma migrate deploy
+    environment:
+      DATABASE_URL: postgres://orchid:${POSTGRES_PASSWORD:-orchid}@db:5432/orchid
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://orchid:${POSTGRES_PASSWORD:-orchid}@db:5432/orchid
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  orchid-db:
