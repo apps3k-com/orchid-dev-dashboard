@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { requireUser } from "@/server/auth/require";
 
 export const dynamic = "force-dynamic";
@@ -30,12 +31,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             </Link>
           ))}
           <form action="/api/auth/logout" method="post" className="ml-auto">
-            <button
-              type="submit"
-              className="text-muted-foreground transition-colors hover:text-foreground"
-            >
+            <Button type="submit" variant="ghost" size="sm">
               Sign out
-            </button>
+            </Button>
           </form>
         </nav>
       </header>

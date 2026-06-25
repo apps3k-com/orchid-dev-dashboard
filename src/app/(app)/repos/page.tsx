@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 /** Repository inventory across managed orgs, with cached open-PR counts. */
 export default async function ReposPage() {
   const repos = await prisma.repo.findMany({
-    include: { _count: { select: { pulls: true } } },
+    include: { _count: { select: { pulls: { where: { state: "OPEN" } } } } },
     orderBy: { nameWithOwner: "asc" },
   });
 
