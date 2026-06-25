@@ -1,0 +1,48 @@
+# Canonical GitHub labels for apps3k repos.
+#
+# apps3k metadata lives in THREE layers — keep them separate, never duplicate:
+#   1. Issue TYPE   (org)  — what KIND of work it is: Task / Bug / Feature / Epic / Support.
+#   2. Issue FIELDS (org)  — Priority, Size, Impact, On Hold, Bug Status, Feature
+#                            Request Status, Target date, Created by … (settings/issue-fields).
+#   3. LABELS (this file)  — only dimensions NOT covered by a Type or Field.
+#
+# => Do NOT recreate Type/Field values as labels (no `bug`, `enhancement`, `urgent`,
+#    `bug: confirmed`, `feature request: accepted`, sizes, severities, …). They are
+#    org Issue Fields/Types and would duplicate `settings/issue-fields`.
+#
+# `module:*` and `product:*` are NOT defined here — they are managed by the
+# `issue-form-options-sync` workflow from `.github/modules.yaml` (per repo) and the
+# `PRODUCTS` org variable (single source of truth). That workflow creates the labels and
+# fills the issue-form dropdowns. labels-sync protects the `module:*` / `product:*`
+# prefixes from `--prune`, so the two never fight. See docs/github-projects.md.
+#
+# Sync this file with: node scripts/github/labels-sync.mjs   (see that script's --help)
+# Format is intentionally simple: every value is a double-quoted string; `#` lines are
+# comments. Color is a 6-digit hex WITHOUT the leading `#`.
+
+labels:
+  # === Workflow / triage — minimal cross-cutting set (everything else is a Field) ==
+  - name: "good first issue"
+    color: "7057FF"
+    description: "Good for newcomers"
+  - name: "help wanted"
+    color: "008672"
+    description: "Extra attention is needed"
+  - name: "dependencies"
+    color: "0366D6"
+    description: "Dependency updates (Dependabot / Renovate)"
+
+  # === area:* — OPTIONAL secondary class (technical layer). Off by default. ========
+  # Uncomment per repo only if a repo genuinely needs layer tagging beyond `module:*`.
+  # - name: "area:frontend"
+  #   color: "0E8A16"
+  #   description: "Area: frontend"
+  # - name: "area:backend"
+  #   color: "0E8A16"
+  #   description: "Area: backend"
+  # - name: "area:database"
+  #   color: "0E8A16"
+  #   description: "Area: database"
+  # - name: "area:infra"
+  #   color: "0E8A16"
+  #   description: "Area: infrastructure / CI"

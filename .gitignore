@@ -1,0 +1,16 @@
+# Dependencies / build
+node_modules/
+dist/
+
+# OS
+.DS_Store
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Claude Code: ignore local artefacts but version the shared workflow
+.claude/*
+!.claude/settings.json
+!.claude/hooks/

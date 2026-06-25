@@ -1,0 +1,38 @@
+# Release Please — maintains a release PR on `main` from Conventional Commits.
+# Merging the release PR (project owner only) bumps the version, updates the
+# CHANGELOG, tags `vX.Y.Z` and creates a GitHub Release. Deployment is handled
+# separately (Coolify / Oxygen / Fly / CF), gated on the release.
+#
+# Customize per repo:
+#   - For an app in a subdirectory or a monorepo, set the package path + version
+#     in release-please-config.json / .release-please-manifest.json
+#     (changelog-path is RELATIVE to the package directory).
+#   - For non-node stacks, change "release-type" in release-please-config.json.
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+# Least privilege: read-only at workflow level; the release-please job below
+# elevates to the writes it needs (release PR + tags/GitHub Releases).
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    # Scoped writes for release-please: open/update the release PR + push tags/Releases.
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
