@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "apps3k-memory": {
+      "url": "https://obot.apps3k.com/mcp-connect/default-apps3k-memory-b8f5d3e6wxfzc",
+      "env": {
+        "Authorization": "Bearer ${env:OBOT_API_TOKEN}"
+      }
+    }
+  }
+}
