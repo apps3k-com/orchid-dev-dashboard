@@ -13,10 +13,7 @@ import { listAppInstallations } from "@/server/github/app";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Authenticated home. Confirms the session + which organizations Orchid manages (the App's
- * installations). The cross-repo cockpit (PRs, Projects, repos, hooks) lands in Increment 4.
- */
+/** Authenticated overview: managed orgs, cache counts, and a manual refresh. */
 export default async function DashboardPage() {
   const user = await requireUser();
   const installations = await listAppInstallations().catch(() => []);
@@ -26,24 +23,17 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-12">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Orchid</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground">Signed in as {user.login}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <form action="/api/refresh" method="post">
-            <Button type="submit" size="sm">
-              Refresh data
-            </Button>
-          </form>
-          <form action="/api/auth/logout" method="post">
-            <Button type="submit" variant="outline" size="sm">
-              Sign out
-            </Button>
-          </form>
-        </div>
+        <form action="/api/refresh" method="post">
+          <Button type="submit" size="sm">
+            Refresh data
+          </Button>
+        </form>
       </div>
 
       <Card>
@@ -92,15 +82,6 @@ export default async function DashboardPage() {
           )}
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Cockpit</CardTitle>
-          <CardDescription>
-            Pull requests, Projects, repositories and agent hooks arrive in the next increments.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    </main>
+    </div>
   );
 }
