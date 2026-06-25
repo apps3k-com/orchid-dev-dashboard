@@ -40,10 +40,37 @@ model Repo {
   isPrivate     Boolean  @default(false)
   url           String?
   pushedAt      DateTime?
+  pulls         PullRequest[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@index([orgId])
+}
+
+/// A cached open pull request (refreshed by the worker / on-demand). CACHE.
+model PullRequest {
+  id             String    @id @default(cuid())
+  nodeId         String    @unique // immutable GitHub GraphQL node id
+  repo           Repo      @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  repoId         String
+  number         Int
+  title          String
+  url            String
+  state          String // OPEN | CLOSED | MERGED
+  isDraft        Boolean   @default(false)
+  authorLogin    String?
+  baseRef        String
+  headRef        String?
+  reviewDecision String? // APPROVED | CHANGES_REQUESTED | REVIEW_REQUIRED
+  checksState    String? // SUCCESS | FAILURE | PENDING | ERROR
+  mergeable      String? // MERGEABLE | CONFLICTING | UNKNOWN
+  labels         String[]
+  ghUpdatedAt    DateTime?
+  syncedAt       DateTime  @default(now())
+
+  @@unique([repoId, number])
+  @@index([repoId])
+  @@index([state])
 }
 
 /// A human who signs in via GitHub OAuth (gated to managed-org membership). APP.

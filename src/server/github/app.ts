@@ -1,4 +1,5 @@
 import { App } from "@octokit/app";
+import { Octokit } from "@octokit/rest";
 import { getAppConfig } from "@/server/config";
 
 /** An org (or user) the App is installed on. */
@@ -20,6 +21,9 @@ export async function getApp(): Promise<App> {
     privateKey: cfg.privateKey,
     oauth: { clientId: cfg.clientId, clientSecret: cfg.clientSecret },
     webhooks: { secret: cfg.webhookSecret ?? "orchid-webhooks-unconfigured" },
+    // Use the @octokit/rest Octokit so app.octokit + installation clients expose
+    // .rest, .paginate and .graphql (used by the sync layer).
+    Octokit,
   });
 }
 
