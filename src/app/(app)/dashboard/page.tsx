@@ -1,25 +1,24 @@
+import { Building2Icon, FolderGit2Icon, GitPullRequestIcon } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import StatisticsCard from "@/components/shadcn-studio/blocks/statistics-card-03";
 import { requireUser } from "@/server/auth/require";
 import { prisma } from "@/server/db";
 import { listAppInstallations } from "@/server/github/app";
 
 export const dynamic = "force-dynamic";
 
-/** Authenticated overview: managed orgs, cache counts, and a manual refresh. */
+/** Authenticated overview: cache stat cards, managed orgs, and a manual refresh. */
 export default async function DashboardPage() {
   const user = await requireUser();
   const installations = await listAppInstallations().catch(() => []);
-  const [repoCount, openPrCount] = await Promise.all([
+  const [repoCount, archivedCount, openPrCount, draftCount] = await Promise.all([
     prisma.repo.count(),
+    prisma.repo.count({ where: { isArchived: true } }),
     prisma.pullRequest.count({ where: { state: "OPEN" } }),
+    prisma.pullRequest.count({ where: { state: "OPEN", isDraft: true } }),
   ]);
 
   return (
@@ -36,26 +35,25 @@ export default async function DashboardPage() {
         </form>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Cache</CardTitle>
-          <CardDescription>
-            Synced from GitHub by the background worker (every 5 min) or on demand.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-6 text-sm">
-            <div>
-              <span className="text-2xl font-semibold">{repoCount}</span>
-              <span className="ml-1 text-muted-foreground">repositories</span>
-            </div>
-            <div>
-              <span className="text-2xl font-semibold">{openPrCount}</span>
-              <span className="ml-1 text-muted-foreground">open pull requests</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatisticsCard
+          icon={<FolderGit2Icon />}
+          value={String(repoCount)}
+          title="Repositories"
+          badgeContent={archivedCount > 0 ? `${archivedCount} archived` : undefined}
+        />
+        <StatisticsCard
+          icon={<GitPullRequestIcon />}
+          value={String(openPrCount)}
+          title="Open pull requests"
+          badgeContent={draftCount > 0 ? `${draftCount} draft` : undefined}
+        />
+        <StatisticsCard
+          icon={<Building2Icon />}
+          value={String(installations.length)}
+          title="Organizations"
+        />
+      </div>
 
       <Card>
         <CardHeader>
