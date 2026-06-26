@@ -2,6 +2,7 @@ import type { Org } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { getApp, getInstallationOctokit } from "@/server/github/app";
 import { type GraphqlPrNode, mapPrNode } from "@/server/github/pr-map";
+import { type GraphqlProjectNode, mapProjectNode } from "@/server/github/projects-map";
 
 const PR_SEARCH = `
   query($q: String!, $after: String) {
@@ -26,6 +27,28 @@ interface PrSearchResult {
     nodes: Array<GraphqlPrNode | Record<string, never>>;
     pageInfo: { hasNextPage: boolean; endCursor: string | null };
   };
+}
+
+const PROJECTS_QUERY = `
+  query($login: String!, $after: String) {
+    organization(login: $login) {
+      projectsV2(first: 50, after: $after) {
+        nodes {
+          id number title url shortDescription closed updatedAt
+          items { totalCount }
+        }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }`;
+
+interface ProjectsResult {
+  organization: {
+    projectsV2: {
+      nodes: Array<GraphqlProjectNode | null>;
+      pageInfo: { hasNextPage: boolean; endCursor: string | null };
+    };
+  } | null;
 }
 
 /** Upsert every installation account (org/user the App is on) into the Org cache. */
@@ -135,15 +158,73 @@ export async function syncPulls(org: Org): Promise<number> {
   return seen.length;
 }
 
-/** Full refresh: installations → repos → open PRs, for every managed org. */
-export async function syncAll(): Promise<{ orgs: number; repos: number; pulls: number }> {
+/** Refresh the ProjectsV2 cache for an org (list + item counts). Accounts without an
+ *  `organization` node (e.g. user installs) have no org projects, so this is a no-op. */
+export async function syncProjects(org: Org): Promise<number> {
+  if (!org.installationId) return 0;
+  const octokit = await getInstallationOctokit(org.installationId);
+  const seen: string[] = [];
+  let after: string | null = null;
+  let fetched = false; // only prune once we actually received a projects connection
+
+  do {
+    const res: ProjectsResult = await octokit.graphql<ProjectsResult>(PROJECTS_QUERY, {
+      login: org.login,
+      after,
+    });
+    const conn = res.organization?.projectsV2;
+    if (!conn) break;
+    fetched = true;
+    for (const node of conn.nodes) {
+      if (!node?.id) continue;
+      const m = mapProjectNode(node);
+      const fields = {
+        orgId: org.id,
+        number: m.number,
+        title: m.title,
+        url: m.url,
+        shortDescription: m.shortDescription,
+        closed: m.closed,
+        itemCount: m.itemCount,
+        ghUpdatedAt: m.ghUpdatedAt,
+        syncedAt: new Date(),
+      };
+      await prisma.project.upsert({
+        where: { nodeId: m.nodeId },
+        create: { nodeId: m.nodeId, ...fields },
+        update: fields,
+      });
+      seen.push(m.nodeId);
+    }
+    after = conn.pageInfo.hasNextPage ? conn.pageInfo.endCursor : null;
+  } while (after);
+
+  // Only prune when we actually got a projects connection — a null `organization`
+  // (transient error, permissions blip, or a non-org install) must NOT wipe the cache.
+  if (fetched) {
+    await prisma.project.deleteMany({
+      where: { orgId: org.id, nodeId: { notIn: seen.length > 0 ? seen : ["__none__"] } },
+    });
+  }
+  return seen.length;
+}
+
+/** Full refresh: installations → repos → open PRs → projects, for every managed org. */
+export async function syncAll(): Promise<{
+  orgs: number;
+  repos: number;
+  pulls: number;
+  projects: number;
+}> {
   const orgs = await syncInstallations();
   const orgRows = await prisma.org.findMany();
   let repos = 0;
   let pulls = 0;
+  let projects = 0;
   for (const org of orgRows) {
     repos += await syncRepos(org);
     pulls += await syncPulls(org);
+    projects += await syncProjects(org);
   }
-  return { orgs, repos, pulls };
+  return { orgs, repos, pulls, projects };
 }

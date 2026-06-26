@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FolderGit2, GitPullRequest, LayoutDashboard, LogOut } from "lucide-react";
+import { FolderGit2, FolderKanban, GitPullRequest, LayoutDashboard, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -27,6 +27,7 @@ import {
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/pulls", label: "Pull requests", icon: GitPullRequest },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/repos", label: "Repositories", icon: FolderGit2 },
 ];
 
