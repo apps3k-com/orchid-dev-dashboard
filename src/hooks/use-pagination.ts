@@ -22,11 +22,11 @@ export function usePagination({
       return Array.from({ length: totalPages }, (_, i) => i + 1)
     }
 
-    const halfDisplay = Math.floor(paginationItemsToDisplay / 2)
-
+    // Center the window on currentPage; for even sizes the extra slot goes after
+    // currentPage so the window width is exactly paginationItemsToDisplay.
     const initialRange = {
-      start: currentPage - halfDisplay,
-      end: currentPage + halfDisplay
+      start: currentPage - Math.floor((paginationItemsToDisplay - 1) / 2),
+      end: currentPage + Math.ceil((paginationItemsToDisplay - 1) / 2)
     }
 
     const adjustedRange = {

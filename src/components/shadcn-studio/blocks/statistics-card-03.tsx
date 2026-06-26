@@ -47,7 +47,11 @@ const StatisticsCard = ({
         {changePercentage ? (
           <p className='flex items-center gap-1'>
             {changePercentage}{' '}
-            {trend === 'down' ? <ChevronDownIcon className='size-4' /> : <ChevronUpIcon className='size-4' />}
+            {trend === 'up' ? (
+              <ChevronUpIcon className='size-4' />
+            ) : trend === 'down' ? (
+              <ChevronDownIcon className='size-4' />
+            ) : null}
           </p>
         ) : null}
       </CardHeader>

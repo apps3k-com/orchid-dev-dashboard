@@ -13,7 +13,13 @@ export const dynamic = "force-dynamic";
 /** Authenticated overview: cache stat cards, managed orgs, and a manual refresh. */
 export default async function DashboardPage() {
   const user = await requireUser();
-  const installations = await listAppInstallations().catch(() => []);
+  let installations: Awaited<ReturnType<typeof listAppInstallations>> = [];
+  let installationsFailed = false;
+  try {
+    installations = await listAppInstallations();
+  } catch {
+    installationsFailed = true;
+  }
   const [repoCount, archivedCount, openPrCount, draftCount] = await Promise.all([
     prisma.repo.count(),
     prisma.repo.count({ where: { isArchived: true } }),
@@ -50,7 +56,7 @@ export default async function DashboardPage() {
         />
         <StatisticsCard
           icon={<Building2Icon />}
-          value={String(installations.length)}
+          value={installationsFailed ? "—" : String(installations.length)}
           title="Organizations"
         />
       </div>
@@ -61,7 +67,12 @@ export default async function DashboardPage() {
           <CardDescription>Organizations your GitHub App is installed on.</CardDescription>
         </CardHeader>
         <CardContent>
-          {installations.length === 0 ? (
+          {installationsFailed ? (
+            <p className="text-sm text-destructive">
+              Could not reach GitHub — the installation list is temporarily unavailable. Try
+              refreshing.
+            </p>
+          ) : installations.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No installations yet — install the GitHub App on an organization from{" "}
               <a className="underline" href="/setup">
