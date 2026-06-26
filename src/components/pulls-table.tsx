@@ -52,6 +52,7 @@ const columns: ColumnDef<PullRow>[] = [
         rel="noreferrer"
       >
         #{row.original.number} {row.getValue("title")}
+        <span className="sr-only"> (opens in a new tab)</span>
       </a>
     ),
   },

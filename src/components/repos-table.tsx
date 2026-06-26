@@ -29,6 +29,7 @@ const columns: ColumnDef<RepoRow>[] = [
           rel="noreferrer"
         >
           {row.getValue("nameWithOwner")}
+          <span className="sr-only"> (opens in a new tab)</span>
         </a>
         {row.original.archived ? <Badge variant="outline">archived</Badge> : null}
       </div>
