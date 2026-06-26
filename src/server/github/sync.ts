@@ -165,6 +165,7 @@ export async function syncProjects(org: Org): Promise<number> {
   const octokit = await getInstallationOctokit(org.installationId);
   const seen: string[] = [];
   let after: string | null = null;
+  let fetched = false; // only prune once we actually received a projects connection
 
   do {
     const res: ProjectsResult = await octokit.graphql<ProjectsResult>(PROJECTS_QUERY, {
@@ -173,6 +174,7 @@ export async function syncProjects(org: Org): Promise<number> {
     });
     const conn = res.organization?.projectsV2;
     if (!conn) break;
+    fetched = true;
     for (const node of conn.nodes) {
       if (!node?.id) continue;
       const m = mapProjectNode(node);
@@ -197,10 +199,13 @@ export async function syncProjects(org: Org): Promise<number> {
     after = conn.pageInfo.hasNextPage ? conn.pageInfo.endCursor : null;
   } while (after);
 
-  // Drop cached projects for this org that no longer exist on GitHub.
-  await prisma.project.deleteMany({
-    where: { orgId: org.id, nodeId: { notIn: seen.length > 0 ? seen : ["__none__"] } },
-  });
+  // Only prune when we actually got a projects connection — a null `organization`
+  // (transient error, permissions blip, or a non-org install) must NOT wipe the cache.
+  if (fetched) {
+    await prisma.project.deleteMany({
+      where: { orgId: org.id, nodeId: { notIn: seen.length > 0 ? seen : ["__none__"] } },
+    });
+  }
   return seen.length;
 }
 
