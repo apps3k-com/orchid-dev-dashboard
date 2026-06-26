@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cookies } from "next/headers";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
   Breadcrumb,
@@ -15,8 +16,10 @@ export const dynamic = "force-dynamic";
 /** Shared shell for the authenticated cockpit: guards access and renders the sidebar + header. */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireUser();
+  // Restore the persisted collapse state written by SidebarProvider (cookie "sidebar_state").
+  const defaultOpen = (await cookies()).get("sidebar_state")?.value !== "false";
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={defaultOpen}>
       <AppSidebar user={{ login: user.login, name: user.name, avatarUrl: user.avatarUrl }} />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
