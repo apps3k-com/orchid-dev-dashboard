@@ -23,6 +23,7 @@ model Org {
   installationId Int?     @unique
   avatarUrl      String?
   repos          Repo[]
+  projects       Project[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -71,6 +72,25 @@ model PullRequest {
   @@unique([repoId, number])
   @@index([repoId])
   @@index([state])
+}
+
+/// A GitHub ProjectV2 owned by a managed org (cross-repo board). CACHE.
+model Project {
+  id               String    @id @default(cuid())
+  nodeId           String    @unique // immutable GitHub GraphQL node id
+  org              Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId            String
+  number           Int
+  title            String
+  url              String
+  shortDescription String?
+  closed           Boolean   @default(false)
+  itemCount        Int       @default(0)
+  ghUpdatedAt      DateTime?
+  syncedAt         DateTime  @default(now())
+
+  @@unique([orgId, number])
+  @@index([orgId])
 }
 
 /// A human who signs in via GitHub OAuth (gated to managed-org membership). APP.
