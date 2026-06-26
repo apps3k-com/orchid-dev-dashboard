@@ -37,7 +37,9 @@ export async function saveProducts(
   try {
     await setOrgProducts(org, products);
   } catch (error) {
-    return { ok: false, message: `Could not save: ${String(error)}` };
+    // Log the full error server-side; never leak internal/GitHub failure detail to the client.
+    console.error("saveProducts failed", error);
+    return { ok: false, message: "Could not save — please try again." };
   }
 
   revalidatePath("/settings/products");

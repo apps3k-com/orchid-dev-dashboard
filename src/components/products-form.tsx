@@ -39,11 +39,14 @@ export function ProductsForm({ orgId, products }: { orgId: string; products: str
           {pending ? "Saving…" : "Save"}
         </Button>
       </div>
-      {state.message ? (
-        <p className={`text-sm ${state.ok ? "text-muted-foreground" : "text-destructive"}`}>
-          {state.message}
-        </p>
-      ) : null}
+      {/* Always-present live region so screen readers announce the result after submit. */}
+      <p
+        role="status"
+        aria-live="polite"
+        className={`text-sm ${state.ok ? "text-muted-foreground" : "text-destructive"}`}
+      >
+        {state.message}
+      </p>
     </form>
   );
 }
