@@ -1,5 +1,6 @@
 import type { Org } from "@prisma/client";
 import { getInstallationOctokit } from "@/server/github/app";
+import { isNotFound } from "@/server/github/errors";
 
 /** Name of the org-level Actions variable that holds the product taxonomy. */
 export const PRODUCTS_VARIABLE = "PRODUCTS";
@@ -12,16 +13,6 @@ export function parseProducts(value: string): string[] {
 /** Serialize a product list back to the comma-separated PRODUCTS variable value (pure). */
 export function formatProducts(products: string[]): string {
   return [...new Set(products.map((s) => s.trim()).filter(Boolean))].join(",");
-}
-
-/** True when an Octokit error is a 404 (resource does not exist). */
-function isNotFound(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    (error as { status?: number }).status === 404
-  );
 }
 
 /** Read the org's PRODUCTS variable (empty list if unset). Requires the org installation. */
