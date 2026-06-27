@@ -12,8 +12,11 @@ export type ProposedFile = { path: string; content: string };
 export async function repoClient(repo: Repo) {
   const org = await prisma.org.findUnique({ where: { id: repo.orgId } });
   if (!org?.installationId) throw new Error(`Repo ${repo.nameWithOwner} has no installation.`);
-  const [owner, name] = repo.nameWithOwner.split("/");
-  if (!owner || !name) throw new Error(`Invalid repository name: ${repo.nameWithOwner}`);
+  const parts = repo.nameWithOwner.split("/");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw new Error(`Invalid repository name: ${repo.nameWithOwner}`);
+  }
+  const [owner, name] = parts;
   const octokit = await getInstallationOctokit(org.installationId);
   return { octokit, owner, name, base: repo.defaultBranch };
 }

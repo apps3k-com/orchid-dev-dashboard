@@ -17,9 +17,11 @@ describe("auto-add-to-project recipe", () => {
     expect(file.path).toBe(".github/workflows/orchid-auto-add-to-project.yml");
   });
 
-  it("carries the managed header and a self-disable guard", () => {
+  it("carries the managed header and a self-disable guard on all activation prerequisites", () => {
     expect(file.content).toContain("# >>> orchid: recipe=auto-add-to-project version=1 <<<");
-    expect(file.content).toContain("if: ${{ vars.ORCHID_PROJECT_URL != '' }}");
+    expect(file.content).toContain("if: ${{");
+    expect(file.content).toContain("vars.ORCHID_PROJECT_URL != ''");
+    expect(file.content).toContain("vars.ORCHID_APP_ID != ''");
   });
 
   it("pins both actions to a commit SHA", () => {
