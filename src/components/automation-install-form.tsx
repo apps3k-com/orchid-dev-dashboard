@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ export function AutomationInstallForm({
 }) {
   const [state, action, pending] = useActionState(installRecipe, INITIAL);
   const [repoId, setRepoId] = useState("");
+  const repoSelectId = useId();
 
   return (
     <form action={action} className="flex flex-col gap-3">
@@ -39,9 +40,9 @@ export function AutomationInstallForm({
       <input type="hidden" name="repoId" value={repoId} />
 
       <div className="flex flex-col gap-2">
-        <Label>Repository</Label>
+        <Label htmlFor={repoSelectId}>Repository</Label>
         <Select value={repoId} onValueChange={setRepoId}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger id={repoSelectId} className="w-full">
             <SelectValue placeholder="Select a repository" />
           </SelectTrigger>
           <SelectContent>
@@ -64,6 +65,7 @@ export function AutomationInstallForm({
             name={`input.${input.name}`}
             placeholder={input.placeholder}
             type={input.type ?? "text"}
+            pattern={input.pattern}
             required
           />
           {input.description ? (

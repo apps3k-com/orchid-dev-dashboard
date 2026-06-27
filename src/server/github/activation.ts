@@ -27,15 +27,30 @@ export async function isOrgMember(org: Org, login: string): Promise<boolean> {
 export const APP_ID_VAR = "ORCHID_APP_ID";
 export const APP_KEY_SECRET = "ORCHID_APP_PRIVATE_KEY";
 
-/** Provision the org-level App credentials: ORCHID_APP_ID (variable) + ORCHID_APP_PRIVATE_KEY
- *  (sealed org secret, visibility all). Idempotent. Needs the org variables + secrets permissions. */
-export async function setOrgAppCredentials(org: Org): Promise<void> {
+/** Provision the org-level App credentials for a recipe install: ORCHID_APP_ID (org variable, not
+ *  sensitive) + ORCHID_APP_PRIVATE_KEY (sealed org secret). The secret is scoped to SELECTED
+ *  repositories — only repos that actually use an automation can read the key — and `repo` is
+ *  added to that allow-list (preserving any already granted). Idempotent. */
+export async function setOrgAppCredentials(org: Org, repo: Repo): Promise<void> {
   if (!org.installationId) throw new Error(`Org ${org.login} has no installation.`);
   const config = await getAppConfig();
   if (!config) throw new Error("GitHub App is not configured.");
   const octokit = await getInstallationOctokit(org.installationId);
 
   await upsertOrgVariable(octokit, org.login, APP_ID_VAR, String(config.appId));
+
+  // Existing allow-list (empty if the secret doesn't exist yet), plus this repo.
+  let selected: number[] = [];
+  try {
+    const current = await octokit.request(
+      "GET /orgs/{org}/actions/secrets/{secret_name}/repositories",
+      { org: org.login, secret_name: APP_KEY_SECRET },
+    );
+    selected = current.data.repositories.map((r) => r.id);
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+  }
+  const selectedRepositoryIds = [...new Set([...selected, repo.githubId])];
 
   const pk = await octokit.request("GET /orgs/{org}/actions/secrets/public-key", {
     org: org.login,
@@ -46,7 +61,8 @@ export async function setOrgAppCredentials(org: Org): Promise<void> {
     secret_name: APP_KEY_SECRET,
     encrypted_value: encrypted,
     key_id: pk.data.key_id,
-    visibility: "all",
+    visibility: "selected",
+    selected_repository_ids: selectedRepositoryIds,
   });
 }
 

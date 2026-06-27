@@ -34,10 +34,14 @@ export async function installRecipe(
 
   const config: Record<string, string> = {};
   for (const input of recipe.inputs) {
-    const value = String(formData.get(`input.${input.name}`) ?? "").trim();
+    const raw = formData.get(`input.${input.name}`);
+    const value = (typeof raw === "string" ? raw : "").trim();
     if (!value) return { ok: false, message: `Missing ${input.label}.` };
     if (input.type === "url" && !URL.canParse(value)) {
       return { ok: false, message: `${input.label} must be a valid URL.` };
+    }
+    if (input.pattern && !new RegExp(input.pattern).test(value)) {
+      return { ok: false, message: `${input.label} is not in the expected format.` };
     }
     config[input.name] = value;
   }
@@ -50,7 +54,7 @@ export async function installRecipe(
     if (!(await isOrgMember(org, user.login))) {
       return { ok: false, message: `You are not a member of ${org.login}.` };
     }
-    await setOrgAppCredentials(org);
+    await setOrgAppCredentials(org, repo);
     await setRepoConfig(repo, config);
   } catch (error) {
     console.error("installRecipe activation failed", briefError(error));

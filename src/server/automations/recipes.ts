@@ -9,6 +9,9 @@ export type RecipeInput = {
   description?: string;
   /** HTML input type + server-side validation hint (e.g. "url"). Defaults to text. */
   type?: string;
+  /** Optional regex (source string) the value must match — enforced server-side and as the
+   *  field's HTML `pattern`. Use for recipe-specific shapes beyond `type`. */
+  pattern?: string;
 };
 
 /** An automation recipe: a named bundle of workflow file(s) Orchid can provision into a repo. */
@@ -73,6 +76,7 @@ const autoAddToProject: Recipe = {
       placeholder: "https://github.com/orgs/<org>/projects/<number>",
       description: "The GitHub Project newly opened issues are added to.",
       type: "url",
+      pattern: "^https://github\\.com/(?:orgs|users)/[^/]+/projects/\\d+",
     },
   ],
   render: () => [
