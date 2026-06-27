@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getSessionUser } from "@/server/auth/session";
 import { prisma } from "@/server/db";
 import { parseProducts, setOrgProducts } from "@/server/github/variables";
+import { briefError } from "@/server/log";
 
 /** Result of {@link saveProducts}, surfaced inline in the editor form. */
 export type SaveProductsState = { ok: boolean; message: string };
@@ -38,7 +39,7 @@ export async function saveProducts(
     await setOrgProducts(org, products);
   } catch (error) {
     // Log the full error server-side; never leak internal/GitHub failure detail to the client.
-    console.error("saveProducts failed", error);
+    console.error("saveProducts failed", briefError(error));
     return { ok: false, message: "Could not save — please try again." };
   }
 

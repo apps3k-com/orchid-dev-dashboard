@@ -9,10 +9,13 @@ export async function upsertOrgVariable(
   value: string,
 ): Promise<void> {
   try {
+    // Re-assert visibility on update too, so a variable previously created "private" still
+    // becomes org-wide (otherwise new repos would not see it).
     await octokit.request("PATCH /orgs/{org}/actions/variables/{name}", {
       org: orgLogin,
       name,
       value,
+      visibility: "all",
     });
   } catch (error) {
     if (!isNotFound(error)) throw error;

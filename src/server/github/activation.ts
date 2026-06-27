@@ -2,8 +2,25 @@ import type { Org, Repo } from "@prisma/client";
 import { getAppConfig } from "@/server/config";
 import { getInstallationOctokit } from "@/server/github/app";
 import { upsertOrgVariable, upsertRepoVariable } from "@/server/github/config-vars";
+import { isNotFound } from "@/server/github/errors";
 import { sealSecret } from "@/server/github/secrets";
 import { repoClient } from "@/server/github/writeback";
+
+/** True when `login` is a member of the org — gate sensitive writes (secrets) to org members. */
+export async function isOrgMember(org: Org, login: string): Promise<boolean> {
+  if (!org.installationId) return false;
+  const octokit = await getInstallationOctokit(org.installationId);
+  try {
+    await octokit.request("GET /orgs/{org}/members/{username}", {
+      org: org.login,
+      username: login,
+    });
+    return true;
+  } catch (error) {
+    if (isNotFound(error)) return false;
+    throw error;
+  }
+}
 
 /** Org variable holding the App id; org secret holding the App private key. Recipes read these
  *  to mint an App token at runtime. Kept at org level so the key lives in exactly one place. */

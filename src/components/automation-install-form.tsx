@@ -63,6 +63,8 @@ export function AutomationInstallForm({
             id={`input-${input.name}`}
             name={`input.${input.name}`}
             placeholder={input.placeholder}
+            type={input.type ?? "text"}
+            required
           />
           {input.description ? (
             <p className="text-muted-foreground text-xs">{input.description}</p>

@@ -2,7 +2,14 @@ import type { ProposedFile } from "@/server/github/writeback";
 
 /** A per-repo configuration value a recipe needs; collected at install and written as a repo
  *  Actions variable named exactly `name` (the workflow reads it via `vars.<name>`). */
-export type RecipeInput = { name: string; label: string; placeholder?: string; description?: string };
+export type RecipeInput = {
+  name: string;
+  label: string;
+  placeholder?: string;
+  description?: string;
+  /** HTML input type + server-side validation hint (e.g. "url"). Defaults to text. */
+  type?: string;
+};
 
 /** An automation recipe: a named bundle of workflow file(s) Orchid can provision into a repo. */
 export type Recipe = {
@@ -24,8 +31,8 @@ const ADD_TO_PROJECT = "actions/add-to-project@5afcf98fcd03f1c2f92c3c83f58ae2432
 const AUTO_ADD_TO_PROJECT_WORKFLOW = [
   "# >>> orchid: recipe=auto-add-to-project version=1 <<<",
   "# Managed by Orchid — adds newly opened issues to a GitHub Project.",
-  "# Activate by setting repo variables ORCHID_PROJECT_URL and ORCHID_APP_ID and the",
-  "# secret ORCHID_APP_PRIVATE_KEY. Until both variables are set the guard keeps this inert.",
+  "# ORCHID_APP_ID + ORCHID_PROJECT_URL are variables; ORCHID_APP_PRIVATE_KEY is a pre-provisioned",
+  "# org secret (set by Orchid). The guard checks the variables (secrets can't be tested in if:).",
   "name: Orchid auto-add issues to project",
   "",
   "on:",
@@ -65,6 +72,7 @@ const autoAddToProject: Recipe = {
       label: "Project URL",
       placeholder: "https://github.com/orgs/<org>/projects/<number>",
       description: "The GitHub Project newly opened issues are added to.",
+      type: "url",
     },
   ],
   render: () => [

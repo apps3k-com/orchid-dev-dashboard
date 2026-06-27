@@ -3,8 +3,9 @@
 import { getRecipe } from "@/server/automations/recipes";
 import { getSessionUser } from "@/server/auth/session";
 import { prisma } from "@/server/db";
-import { setOrgAppCredentials, setRepoConfig } from "@/server/github/activation";
+import { isOrgMember, setOrgAppCredentials, setRepoConfig } from "@/server/github/activation";
 import { proposeFiles } from "@/server/github/writeback";
+import { briefError } from "@/server/log";
 
 /** Result of {@link installRecipe}, surfaced inline in the install form (with the new PR URL). */
 export type InstallState = { ok: boolean; message: string; prUrl?: string };
@@ -12,8 +13,8 @@ export type InstallState = { ok: boolean; message: string; prUrl?: string };
 const isForbidden = (error: unknown): boolean =>
   typeof error === "object" && error !== null && (error as { status?: number }).status === 403;
 
-/** Server action: provision an automation recipe into a repo. Sets the org-level App credentials
- *  and the recipe's per-repo config variables, then opens a PR adding the workflow. Auth-gated. */
+/** Server action: provision an automation recipe into a repo. Gated to members of the target org
+ *  (it writes an org secret); sets the org App credentials + per-repo config, then opens a PR. */
 export async function installRecipe(
   _prev: InstallState,
   formData: FormData,
@@ -35,15 +36,35 @@ export async function installRecipe(
   for (const input of recipe.inputs) {
     const value = String(formData.get(`input.${input.name}`) ?? "").trim();
     if (!value) return { ok: false, message: `Missing ${input.label}.` };
+    if (input.type === "url" && !URL.canParse(value)) {
+      return { ok: false, message: `${input.label} must be a valid URL.` };
+    }
     config[input.name] = value;
   }
 
   const org = await prisma.org.findUnique({ where: { id: repo.orgId } });
   if (!org) return { ok: false, message: "Organization not found." };
 
+  // Provisioning writes an org secret (the App key) — gate it to members of that org.
   try {
+    if (!(await isOrgMember(org, user.login))) {
+      return { ok: false, message: `You are not a member of ${org.login}.` };
+    }
     await setOrgAppCredentials(org);
     await setRepoConfig(repo, config);
+  } catch (error) {
+    console.error("installRecipe activation failed", briefError(error));
+    if (isForbidden(error)) {
+      return {
+        ok: false,
+        message:
+          "Permission denied — the GitHub App likely needs the organization variables/secrets permission. Re-approve it on the org's installation, then retry.",
+      };
+    }
+    return { ok: false, message: "Could not set credentials — please try again." };
+  }
+
+  try {
     const { prUrl } = await proposeFiles(repo, recipe.render(), {
       branchPrefix: `orchid/automation-${recipe.id}`,
       commitMessage: `ci(automation): add ${recipe.id} workflow`,
@@ -55,14 +76,10 @@ export async function installRecipe(
     });
     return { ok: true, message: "Opened a pull request with the automation workflow.", prUrl };
   } catch (error) {
-    console.error("installRecipe failed", error);
-    if (isForbidden(error)) {
-      return {
-        ok: false,
-        message:
-          "Permission denied — the GitHub App likely needs the organization variables/secrets permission. Re-approve it on the org's installation, then retry.",
-      };
-    }
-    return { ok: false, message: "Could not provision — please try again." };
+    console.error("installRecipe PR failed", briefError(error));
+    return {
+      ok: false,
+      message: "Credentials set, but the pull request could not be opened — check branch protection and retry.",
+    };
   }
 }
