@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,19 @@ const columns: ColumnDef<RepoRow>[] = [
     accessorKey: "openPrs",
     header: "Open PRs",
     cell: ({ row }) => <span className="tabular-nums">{row.getValue("openPrs")}</span>,
+  },
+  {
+    id: "actions",
+    header: "",
+    enableSorting: false,
+    cell: ({ row }) => (
+      <Link
+        href={`/repos/${row.original.id}/modules`}
+        className="text-sm font-medium hover:underline"
+      >
+        Modules
+      </Link>
+    ),
   },
 ];
 
