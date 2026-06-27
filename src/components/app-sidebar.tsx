@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FolderGit2, FolderKanban, GitPullRequest, LayoutDashboard, LogOut } from "lucide-react";
+import { FolderGit2, FolderKanban, GitPullRequest, LayoutDashboard, LogOut, Tags } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -18,22 +18,58 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-const NAV = [
+type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
+
+const VIEWS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/pulls", label: "Pull requests", icon: GitPullRequest },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/repos", label: "Repositories", icon: FolderGit2 },
 ];
 
+const SETTINGS: NavItem[] = [{ href: "/settings/products", label: "Products", icon: Tags }];
+
 type SidebarUser = { login: string; name: string | null; avatarUrl: string | null };
 
-/** Cockpit navigation sidebar: managed-repo sections plus the signed-in user with sign-out. */
+/** One labelled group of sidebar links (highlights the active route). */
+function NavSection({
+  items,
+  pathname,
+  label,
+}: {
+  items: NavItem[];
+  pathname: string;
+  label?: string;
+}) {
+  return (
+    <SidebarGroup>
+      {label ? <SidebarGroupLabel>{label}</SidebarGroupLabel> : null}
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {items.map((item) => (
+            <SidebarMenuItem key={item.href}>
+              <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
+                <Link href={item.href}>
+                  <item.icon />
+                  <span>{item.label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
+/** Cockpit navigation sidebar: managed-repo views, a settings group, and the signed-in user. */
 export function AppSidebar({ user }: { user: SidebarUser }) {
   const pathname = usePathname();
   const initials = (user.name ?? user.login).slice(0, 2).toUpperCase();
@@ -47,22 +83,8 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
-                    <Link href={item.href}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <NavSection items={VIEWS} pathname={pathname} />
+        <NavSection items={SETTINGS} pathname={pathname} label="Settings" />
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
