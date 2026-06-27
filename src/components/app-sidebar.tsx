@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FolderGit2, FolderKanban, GitPullRequest, LayoutDashboard, LogOut, Tags } from "lucide-react";
+import {
+  FolderGit2,
+  FolderKanban,
+  GitPullRequest,
+  LayoutDashboard,
+  LogOut,
+  Tags,
+  Workflow,
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -34,7 +42,10 @@ const VIEWS: NavItem[] = [
   { href: "/repos", label: "Repositories", icon: FolderGit2 },
 ];
 
-const SETTINGS: NavItem[] = [{ href: "/settings/products", label: "Products", icon: Tags }];
+const SETTINGS: NavItem[] = [
+  { href: "/automations", label: "Automations", icon: Workflow },
+  { href: "/settings/products", label: "Products", icon: Tags },
+];
 
 type SidebarUser = { login: string; name: string | null; avatarUrl: string | null };
 
