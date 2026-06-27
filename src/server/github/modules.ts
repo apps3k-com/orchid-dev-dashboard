@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Repo } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { getInstallationOctokit } from "@/server/github/app";
@@ -20,8 +21,9 @@ function splitOwnerName(nameWithOwner: string): { owner: string; name: string } 
   return { owner, name };
 }
 
+// Order-sensitive: a reorder is a real change (it changes the rendered file / dropdown order).
 const sameModules = (a: string[], b: string[]): boolean =>
-  a.length === b.length && [...a].sort().join("\0") === [...b].sort().join("\0");
+  a.length === b.length && a.every((x, i) => x === b[i]);
 
 /** Read the repo's `.github/modules.yaml` from the default branch (empty list if absent). */
 export async function getRepoModules(repo: Repo): Promise<string[]> {
@@ -49,7 +51,15 @@ export async function proposeModules(repo: Repo, modules: string[]): Promise<{ p
   const { owner, name } = splitOwnerName(repo.nameWithOwner);
   const base = repo.defaultBranch;
 
-  // One read: current blob SHA (to update) + current modules (to detect a no-op change).
+  // Resolve the default-branch head FIRST, then read modules.yaml at that exact commit, so the
+  // no-op check and the branch point stay consistent even if the default branch moves meanwhile.
+  const ref = await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", {
+    owner,
+    repo: name,
+    ref: `heads/${base}`,
+  });
+  const headSha = ref.data.object.sha;
+
   let sha: string | undefined;
   let current: string[] = [];
   try {
@@ -57,7 +67,7 @@ export async function proposeModules(repo: Repo, modules: string[]): Promise<{ p
       owner,
       repo: name,
       path: MODULES_PATH,
-      ref: base,
+      ref: headSha,
     });
     if (!Array.isArray(cur.data) && cur.data.type === "file") {
       sha = cur.data.sha;
@@ -72,18 +82,13 @@ export async function proposeModules(repo: Repo, modules: string[]): Promise<{ p
     throw new Error("No changes to the module list.");
   }
 
-  // Branch off the current default-branch head.
-  const ref = await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", {
-    owner,
-    repo: name,
-    ref: `heads/${base}`,
-  });
-  const branch = `orchid/modules-${Date.now().toString(36)}`;
+  // Unique branch name (timestamp + random) so concurrent saves cannot collide on the same ref.
+  const branch = `orchid/modules-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
   await octokit.request("POST /repos/{owner}/{repo}/git/refs", {
     owner,
     repo: name,
     ref: `refs/heads/${branch}`,
-    sha: ref.data.object.sha,
+    sha: headSha,
   });
 
   // Commit the rendered file on the new branch.

@@ -54,7 +54,7 @@ const columns: ColumnDef<RepoRow>[] = [
   },
   {
     id: "actions",
-    header: "",
+    header: () => <span className="sr-only">Actions</span>,
     enableSorting: false,
     cell: ({ row }) => (
       <Link
