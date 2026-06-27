@@ -1,5 +1,6 @@
 import type { Org } from "@prisma/client";
 import { getInstallationOctokit } from "@/server/github/app";
+import { upsertOrgVariable } from "@/server/github/config-vars";
 import { isNotFound } from "@/server/github/errors";
 
 /** Name of the org-level Actions variable that holds the product taxonomy. */
@@ -36,23 +37,5 @@ export async function getOrgProducts(org: Org): Promise<string[]> {
 export async function setOrgProducts(org: Org, products: string[]): Promise<void> {
   if (!org.installationId) throw new Error(`Org ${org.login} has no installation.`);
   const octokit = await getInstallationOctokit(org.installationId);
-  const value = formatProducts(products);
-  try {
-    await octokit.request("PATCH /orgs/{org}/actions/variables/{name}", {
-      org: org.login,
-      name: PRODUCTS_VARIABLE,
-      value,
-    });
-  } catch (error) {
-    if (isNotFound(error)) {
-      await octokit.request("POST /orgs/{org}/actions/variables", {
-        org: org.login,
-        name: PRODUCTS_VARIABLE,
-        value,
-        visibility: "all",
-      });
-    } else {
-      throw error;
-    }
-  }
+  await upsertOrgVariable(octokit, org.login, PRODUCTS_VARIABLE, formatProducts(products));
 }

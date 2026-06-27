@@ -20,8 +20,9 @@ export default async function AutomationsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Automations</h1>
         <p className="text-sm text-muted-foreground">
-          Provision a GitHub Actions automation into a repository — each opens a pull request. The
-          workflow self-disables until you set its activation variables and secrets.
+          Provision a GitHub Actions automation into a repository — each opens a pull request.
+          Orchid sets the org App credentials and the recipe&apos;s config, so the workflow
+          activates on merge.
         </p>
       </div>
 
@@ -37,17 +38,12 @@ export default async function AutomationsPage() {
                 <CardTitle>{recipe.name}</CardTitle>
                 <CardDescription>{recipe.description}</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Activate by setting:{" "}
-                  {recipe.activation.map((a, i) => (
-                    <span key={a}>
-                      {i > 0 ? ", " : ""}
-                      <code>{a}</code>
-                    </span>
-                  ))}
-                </p>
-                <AutomationInstallForm recipeId={recipe.id} repos={repos} />
+              <CardContent>
+                <AutomationInstallForm
+                  recipeId={recipe.id}
+                  inputs={recipe.inputs}
+                  repos={repos}
+                />
               </CardContent>
             </Card>
           ))}

@@ -1,12 +1,16 @@
 import type { ProposedFile } from "@/server/github/writeback";
 
+/** A per-repo configuration value a recipe needs; collected at install and written as a repo
+ *  Actions variable named exactly `name` (the workflow reads it via `vars.<name>`). */
+export type RecipeInput = { name: string; label: string; placeholder?: string; description?: string };
+
 /** An automation recipe: a named bundle of workflow file(s) Orchid can provision into a repo. */
 export type Recipe = {
   id: string;
   name: string;
   description: string;
-  /** The repo variables/secrets a maintainer sets to activate the workflow (shown in the PR). */
-  activation: string[];
+  /** Per-repo config the installer collects (set as repo variables on install). */
+  inputs: RecipeInput[];
   /** Render the repo-relative files this recipe writes (pure). */
   render: () => ProposedFile[];
 };
@@ -54,8 +58,15 @@ const autoAddToProject: Recipe = {
   id: "auto-add-to-project",
   name: "Auto-add issues to a Project",
   description:
-    "When an issue is opened, add it to a GitHub Project. The workflow self-disables until activated.",
-  activation: ["vars.ORCHID_PROJECT_URL", "vars.ORCHID_APP_ID", "secrets.ORCHID_APP_PRIVATE_KEY"],
+    "When an issue is opened, add it to a GitHub Project. Orchid sets the org App credentials and the project URL; the workflow activates on merge.",
+  inputs: [
+    {
+      name: "ORCHID_PROJECT_URL",
+      label: "Project URL",
+      placeholder: "https://github.com/orgs/<org>/projects/<number>",
+      description: "The GitHub Project newly opened issues are added to.",
+    },
+  ],
   render: () => [
     {
       path: ".github/workflows/orchid-auto-add-to-project.yml",
