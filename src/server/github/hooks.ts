@@ -1,5 +1,6 @@
 import { type InstallationOctokit, getInstallationOctokit } from "@/server/github/app";
 import { isNotFound } from "@/server/github/errors";
+import { briefError } from "@/server/log";
 import { prisma } from "@/server/db";
 
 // The agent-hook surface compared against the canonical template.
@@ -84,15 +85,26 @@ export async function syncHooks(): Promise<number> {
   if (!tOrg?.installationId) return 0;
   const tOctokit = await getInstallationOctokit(tOrg.installationId);
 
+  // Template resolution is best-effort: any failure (missing repo, transient API/auth error) skips
+  // this run rather than crashing syncAll. Errors are logged via briefError to avoid token leaks.
   let templateBranch: string;
   try {
     const info = await tOctokit.request("GET /repos/{owner}/{repo}", { owner: tOwner, repo: tName });
     templateBranch = info.data.default_branch;
   } catch (error) {
-    if (isNotFound(error)) return 0;
-    throw error;
+    if (!isNotFound(error)) {
+      console.warn(`hooks: failed to read template repo ${templateRepo}`, briefError(error));
+    }
+    return 0;
   }
-  const templateTree = await getHookTree(tOctokit, tOwner, tName, templateBranch);
+
+  let templateTree: Map<string, string>;
+  try {
+    templateTree = await getHookTree(tOctokit, tOwner, tName, templateBranch);
+  } catch (error) {
+    console.warn(`hooks: failed to fetch template tree for ${templateRepo}`, briefError(error));
+    return 0;
+  }
   if (templateTree.size === 0) return 0; // nothing to compare against
 
   const repos = await prisma.repo.findMany({ include: { org: true } });
@@ -106,8 +118,10 @@ export async function syncHooks(): Promise<number> {
     try {
       const octokit = await getInstallationOctokit(repo.org.installationId);
       repoTree = await getHookTree(octokit, owner, name, repo.defaultBranch);
-    } catch {
-      continue; // transient/repo error — skip this repo this run
+    } catch (error) {
+      // Transient/repo error — skip this repo this run (its cached rows are left intact).
+      console.warn(`hooks: skipping ${repo.nameWithOwner}`, briefError(error));
+      continue;
     }
 
     const states = classifyHooks(templateTree, repoTree);
