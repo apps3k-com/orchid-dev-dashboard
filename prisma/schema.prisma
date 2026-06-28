@@ -43,6 +43,7 @@ model Repo {
   pushedAt      DateTime?
   pulls         PullRequest[]
   automations   AutomationInstall[]
+  hookStates    RepoHookState[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -108,6 +109,22 @@ model AutomationInstall {
   updatedAt DateTime @updatedAt
 
   @@unique([repoId, recipeId])
+  @@index([repoId])
+}
+
+/// Per-file drift of a repo's agent hooks (.claude/** and .codex/**) vs the canonical template,
+/// compared by git blob SHA. One row per repo + path. CACHE.
+model RepoHookState {
+  id          String   @id @default(cuid())
+  repo        Repo     @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  repoId      String
+  path        String
+  status      String // match | outdated | missing | extra
+  repoSha     String?
+  templateSha String?
+  syncedAt    DateTime @default(now())
+
+  @@unique([repoId, path])
   @@index([repoId])
 }
 

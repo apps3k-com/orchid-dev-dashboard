@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Tags,
+  Webhook,
   Workflow,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,6 +41,7 @@ const VIEWS: NavItem[] = [
   { href: "/pulls", label: "Pull requests", icon: GitPullRequest },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/repos", label: "Repositories", icon: FolderGit2 },
+  { href: "/hooks", label: "Hooks", icon: Webhook },
 ];
 
 const SETTINGS: NavItem[] = [
