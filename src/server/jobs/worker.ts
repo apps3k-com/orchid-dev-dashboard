@@ -1,5 +1,6 @@
 import { type Runner, run } from "graphile-worker";
 import { syncAll } from "@/server/github/sync";
+import { runAudit } from "@/server/llm/audit";
 
 const globalForWorker = globalThis as unknown as { orchidWorker?: Runner };
 
@@ -18,6 +19,10 @@ export async function startWorker(): Promise<void> {
     taskList: {
       "sync:all": async () => {
         await syncAll();
+      },
+      "audit:run": async (payload) => {
+        const { auditId } = (payload ?? {}) as { auditId?: string };
+        if (auditId) await runAudit(auditId);
       },
     },
     crontab: "*/5 * * * * sync:all",

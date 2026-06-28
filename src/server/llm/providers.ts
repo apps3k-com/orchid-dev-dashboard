@@ -28,6 +28,14 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
 /** All supported provider ids, for iteration. */
 export const PROVIDER_IDS = Object.keys(PROVIDERS) as ProviderId[];
 
+/** Per-model token pricing in USD per 1M tokens (June 2026 standard rates — re-verify when models
+ *  change). Used only to estimate audit cost for the per-run budget guard. */
+export const MODEL_PRICING: Record<string, { inPerM: number; outPerM: number }> = {
+  "claude-sonnet-4-6": { inPerM: 3, outPerM: 15 },
+  "claude-opus-4-8": { inPerM: 5, outPerM: 25 },
+  "claude-haiku-4-5": { inPerM: 1, outPerM: 5 },
+};
+
 /** Narrow an arbitrary string to a known provider id. */
 export function isProviderId(value: string): value is ProviderId {
   return Object.prototype.hasOwnProperty.call(PROVIDERS, value);

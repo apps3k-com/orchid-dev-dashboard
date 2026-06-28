@@ -1,0 +1,98 @@
+import type { Repo } from "@prisma/client";
+
+import { isNotFound } from "@/server/github/errors";
+import { repoClient } from "@/server/github/writeback";
+
+// The agent/hook configuration surface an audit reads, in priority order (root files first).
+const ROOT_FILES = new Set([
+  "AGENTS.md",
+  "CLAUDE.md",
+  "CODEX.md",
+  ".coderabbit.yaml",
+  ".coderabbit.yml",
+]);
+const PREFIXES = [".claude/", ".codex/", ".github/workflows/", "docs/agents/"];
+
+// Char-based bounds (a rough token proxy) so a big repo can't blow the context window / cost.
+const PER_FILE_CHARS = 24_000;
+const TOTAL_CHARS = 360_000;
+
+/** One collected config file. */
+export type AuditFile = { path: string; content: string };
+
+/** The bounded config set for one audit, plus the commit it was read at and anything dropped. */
+export type AuditContext = { files: AuditFile[]; commitSha: string; omitted: string[] };
+
+function priority(path: string): number {
+  if (ROOT_FILES.has(path)) return 0;
+  const index = PREFIXES.findIndex((prefix) => path.startsWith(prefix));
+  return index === -1 ? 99 : index + 1;
+}
+
+function isAudited(path: string): boolean {
+  return ROOT_FILES.has(path) || PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
+/** Collect a repo's agent/hook config files (`.claude/**`, `.codex/**`, `.github/workflows/*`,
+ *  `AGENTS.md`/`CLAUDE.md`/`CODEX.md`, `.coderabbit.yaml`, `docs/agents/*`) at the default-branch
+ *  head, in priority order, bounded per-file and overall. Files dropped by the cap are reported in
+ *  `omitted` (never silently). */
+export async function collectAuditContext(repo: Repo): Promise<AuditContext> {
+  const { octokit, owner, name, base } = await repoClient(repo);
+
+  const ref = await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", {
+    owner,
+    repo: name,
+    ref: `heads/${base}`,
+  });
+  const commitSha = ref.data.object.sha;
+
+  const tree = await octokit.request("GET /repos/{owner}/{repo}/git/trees/{tree_sha}", {
+    owner,
+    repo: name,
+    tree_sha: commitSha,
+    recursive: "true",
+  });
+  if (tree.data.truncated) {
+    console.warn(`audit: tree truncated for ${owner}/${name}; some config files may be missed`);
+  }
+
+  const blobs = tree.data.tree
+    .filter((e) => e.type === "blob" && e.path && e.sha && isAudited(e.path))
+    .map((e) => ({ path: e.path as string, sha: e.sha as string }))
+    .sort((a, b) => priority(a.path) - priority(b.path) || a.path.localeCompare(b.path));
+
+  const files: AuditFile[] = [];
+  const omitted: string[] = [];
+  let total = 0;
+  for (const blob of blobs) {
+    if (total >= TOTAL_CHARS) {
+      omitted.push(blob.path);
+      continue;
+    }
+    try {
+      const res = await octokit.request("GET /repos/{owner}/{repo}/git/blobs/{file_sha}", {
+        owner,
+        repo: name,
+        file_sha: blob.sha,
+      });
+      let content =
+        res.data.encoding === "base64"
+          ? Buffer.from(res.data.content, "base64").toString("utf8")
+          : res.data.content;
+      if (content.length > PER_FILE_CHARS) {
+        content = `${content.slice(0, PER_FILE_CHARS)}\n…[truncated]`;
+      }
+      if (total + content.length > TOTAL_CHARS) {
+        omitted.push(blob.path);
+        continue;
+      }
+      files.push({ path: blob.path, content });
+      total += content.length;
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+    }
+  }
+
+  return { files, commitSha, omitted };
+}
