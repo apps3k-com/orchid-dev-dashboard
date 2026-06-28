@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { getApp, getInstallationOctokit } from "@/server/github/app";
 import { type GraphqlPrNode, mapPrNode } from "@/server/github/pr-map";
 import { type GraphqlProjectNode, mapProjectNode } from "@/server/github/projects-map";
+import { reconcileAutomations } from "@/server/automations/reconcile";
 
 const PR_SEARCH = `
   query($q: String!, $after: String) {
@@ -209,12 +210,14 @@ export async function syncProjects(org: Org): Promise<number> {
   return seen.length;
 }
 
-/** Full refresh: installations → repos → open PRs → projects, for every managed org. */
+/** Full refresh: installations → repos → open PRs → projects per org, then reconcile the
+ *  tracked automation installs. */
 export async function syncAll(): Promise<{
   orgs: number;
   repos: number;
   pulls: number;
   projects: number;
+  automations: number;
 }> {
   const orgs = await syncInstallations();
   const orgRows = await prisma.org.findMany();
@@ -226,5 +229,6 @@ export async function syncAll(): Promise<{
     pulls += await syncPulls(org);
     projects += await syncProjects(org);
   }
-  return { orgs, repos, pulls, projects };
+  const automations = await reconcileAutomations();
+  return { orgs, repos, pulls, projects, automations };
 }

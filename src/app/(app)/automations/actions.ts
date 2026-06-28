@@ -68,8 +68,9 @@ export async function installRecipe(
     return { ok: false, message: "Could not set credentials — please try again." };
   }
 
+  let prUrl: string;
   try {
-    const { prUrl } = await proposeFiles(repo, recipe.render(), {
+    ({ prUrl } = await proposeFiles(repo, recipe.render(), {
       branchPrefix: `orchid/automation-${recipe.id}`,
       commitMessage: `ci(automation): add ${recipe.id} workflow`,
       title: `ci(automation): add ${recipe.name}`,
@@ -77,8 +78,7 @@ export async function installRecipe(
         `Provisions the **${recipe.name}** automation via Orchid.\n\n${recipe.description}\n\n` +
         "Orchid has set the org App credentials and the repo variables " +
         `${Object.keys(config).map((k) => `\`${k}\``).join(", ")}, so the workflow activates on merge.`,
-    });
-    return { ok: true, message: "Opened a pull request with the automation workflow.", prUrl };
+    }));
   } catch (error) {
     console.error("installRecipe PR failed", briefError(error));
     return {
@@ -86,4 +86,16 @@ export async function installRecipe(
       message: "Credentials set, but the pull request could not be opened — check branch protection and retry.",
     };
   }
+
+  // The PR is open (the user-facing outcome); a tracking-row failure must not report PR failure.
+  try {
+    await prisma.automationInstall.upsert({
+      where: { repoId_recipeId: { repoId: repo.id, recipeId: recipe.id } },
+      create: { repoId: repo.id, recipeId: recipe.id, version: recipe.version, state: "pending_pr", prUrl },
+      update: { version: recipe.version, state: "pending_pr", prUrl },
+    });
+  } catch (error) {
+    console.error("installRecipe tracking failed", briefError(error));
+  }
+  return { ok: true, message: "Opened a pull request with the automation workflow.", prUrl };
 }

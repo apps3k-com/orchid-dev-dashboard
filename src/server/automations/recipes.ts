@@ -17,6 +17,8 @@ export type RecipeInput = {
 /** An automation recipe: a named bundle of workflow file(s) Orchid can provision into a repo. */
 export type Recipe = {
   id: string;
+  /** Bumped when the rendered workflow changes; mirrors the managed-header `version=`. */
+  version: number;
   name: string;
   description: string;
   /** Per-repo config the installer collects (set as repo variables on install). */
@@ -66,6 +68,7 @@ const AUTO_ADD_TO_PROJECT_WORKFLOW = [
 
 const autoAddToProject: Recipe = {
   id: "auto-add-to-project",
+  version: 1,
   name: "Auto-add issues to a Project",
   description:
     "When an issue is opened, add it to a GitHub Project. Orchid sets the org App credentials and the project URL; the workflow activates on merge.",
@@ -93,4 +96,10 @@ export const RECIPES: Recipe[] = [autoAddToProject];
 /** Look up a recipe by id. */
 export function getRecipe(id: string): Recipe | undefined {
   return RECIPES.find((r) => r.id === id);
+}
+
+/** Extract the managed-header version from a committed workflow file (null if no Orchid header). */
+export function parseManagedVersion(content: string): number | null {
+  const match = content.match(/# >>> orchid: recipe=\S+ version=(\d+)/);
+  return match ? Number(match[1]) : null;
 }

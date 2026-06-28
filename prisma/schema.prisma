@@ -42,6 +42,7 @@ model Repo {
   url           String?
   pushedAt      DateTime?
   pulls         PullRequest[]
+  automations   AutomationInstall[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -91,6 +92,23 @@ model Project {
 
   @@unique([orgId, number])
   @@index([orgId])
+}
+
+/// An automation recipe provisioned into a repo (one row per repo + recipe). Orchid is the
+/// index; the repo (managed header in the workflow file) is authoritative. APP/audit.
+model AutomationInstall {
+  id        String   @id @default(cuid())
+  repo      Repo     @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  repoId    String
+  recipeId  String
+  version   Int      @default(1)
+  state     String // pending_pr | installed | missing
+  prUrl     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([repoId, recipeId])
+  @@index([repoId])
 }
 
 /// A human who signs in via GitHub OAuth (gated to managed-org membership). APP.
