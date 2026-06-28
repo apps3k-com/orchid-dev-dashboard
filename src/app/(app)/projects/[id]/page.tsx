@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireUser } from "@/server/auth/require";
 import { prisma } from "@/server/db";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ function ProjectItemRow({ item }: { item: ProjectItem }) {
 
 /** Per-project board: the project's items grouped into columns by their Status field value. */
 export default async function ProjectBoardPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireUser();
   const { id } = await params;
   const project = await prisma.project.findUnique({
     where: { id },
@@ -81,7 +83,7 @@ export default async function ProjectBoardPage({ params }: { params: Promise<{ i
           {columns.map(([status, items]) => (
             <Card key={status}>
               <CardHeader>
-                <CardTitle className="flex items-center justify-between gap-2 text-base">
+                <CardTitle className="flex items-center justify-between gap-2">
                   <span>{status}</span>
                   <Badge variant="secondary">{items.length}</Badge>
                 </CardTitle>

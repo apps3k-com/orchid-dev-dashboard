@@ -66,7 +66,7 @@ const PROJECT_ITEMS_QUERY = `
         items(first: 100, after: $after) {
           nodes {
             id type
-            fieldValues(first: 20) {
+            fieldValues(first: 50) {
               nodes {
                 ... on ProjectV2ItemFieldSingleSelectValue {
                   name

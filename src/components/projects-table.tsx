@@ -42,11 +42,16 @@ const columns: ColumnDef<ProjectRow>[] = [
   {
     accessorKey: "items",
     header: "Items",
-    cell: ({ row }) => (
-      <Link href={`/projects/${row.original.id}`} className="tabular-nums hover:underline">
-        {row.getValue("items")}
-      </Link>
-    ),
+    cell: ({ row }) => {
+      const count = row.getValue<number>("items");
+      return count > 0 ? (
+        <Link href={`/projects/${row.original.id}`} className="tabular-nums hover:underline">
+          {count}
+        </Link>
+      ) : (
+        <span className="tabular-nums text-muted-foreground">0</span>
+      );
+    },
   },
   {
     accessorKey: "status",
