@@ -84,16 +84,34 @@ const toFindingRow = (f: AuditFindingResult) => ({
  *  persist the result. Any failure is recorded on the audit row (status `failed`) — never thrown to
  *  the worker, so a bad run can't crash the queue. */
 export async function runAudit(auditId: string): Promise<void> {
-  const audit = await prisma.repoAudit.findUnique({ where: { id: auditId }, include: { repo: true } });
-  if (!audit) return;
+  // Atomically claim the row (pending → running) so a duplicate/retried job can't double-process it.
+  const claim = await prisma.repoAudit.updateMany({
+    where: { id: auditId, status: "pending" },
+    data: { status: "running" },
+  });
+  if (claim.count === 0) return; // already claimed/processed, or the row is gone
 
   try {
-    await prisma.repoAudit.update({ where: { id: auditId }, data: { status: "running" } });
+    // Lookup is inside the guarded path so a transient DB error is recorded as failed, not thrown.
+    const audit = await prisma.repoAudit.findUnique({
+      where: { id: auditId },
+      include: { repo: true },
+    });
+    if (!audit) return;
+
+    // Fail closed if we can't price the model — otherwise estimateUsd would return 0 and the cost
+    // guard below would wave through an unbounded run.
+    if (!MODEL_PRICING[audit.model]) {
+      throw new Error(`No pricing configured for model ${audit.model} — cannot enforce the cost cap.`);
+    }
 
     const apiKey = await getDecryptedProviderKey("anthropic");
     if (!apiKey) throw new Error("No Anthropic key configured.");
 
-    const { files, commitSha, omitted } = await collectAuditContext(audit.repo);
+    const { files, commitSha, omitted, truncated } = await collectAuditContext(audit.repo);
+    if (truncated) {
+      throw new Error("Repository tree is too large (truncated) — cannot guarantee a complete audit.");
+    }
     if (files.length === 0) throw new Error("No agent/hook config files found to audit.");
 
     const hookStates = await prisma.repoHookState.findMany({
@@ -126,7 +144,10 @@ export async function runAudit(auditId: string): Promise<void> {
         `audit ${auditId}: dropped ${result.findings.length - findings.length} invalid/hallucinated finding(s)`,
       );
     }
+    // Fall back to the preflight count / budgeted max if the response omits usage, so a completed
+    // run never records a misleading $0 / 0-token cost.
     const usedInput = inputTokens || preflightTokens;
+    const usedOutput = outputTokens || AUDIT_MAX_OUTPUT_TOKENS;
 
     await prisma.repoAudit.update({
       where: { id: auditId },
@@ -136,8 +157,8 @@ export async function runAudit(auditId: string): Promise<void> {
         score: clampScore(result.summary.score),
         summary: result.summary.overallAssessment,
         inputTokens: usedInput,
-        outputTokens,
-        estimatedUsd: estimateUsd(audit.model, usedInput, outputTokens),
+        outputTokens: usedOutput,
+        estimatedUsd: estimateUsd(audit.model, usedInput, usedOutput),
         completedAt: new Date(),
         findings: { create: findings.map(toFindingRow) },
       },

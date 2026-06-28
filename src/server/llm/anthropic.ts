@@ -13,6 +13,22 @@ function headers(apiKey: string): Record<string, string> {
   };
 }
 
+/** POST JSON with an explicit timeout (aborts a hung connection so it can't block the worker). */
+async function postJson(path: string, apiKey: string, body: unknown, timeoutMs: number) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: headers(apiKey),
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Free input-token count for a prompt, used for the pre-run cost estimate / budget guard. */
 export async function countInputTokens(
   apiKey: string,
@@ -20,11 +36,12 @@ export async function countInputTokens(
   system: string,
   content: string,
 ): Promise<number> {
-  const res = await fetch(`${API_BASE}/messages/count_tokens`, {
-    method: "POST",
-    headers: headers(apiKey),
-    body: JSON.stringify({ model, system, messages: [{ role: "user", content }] }),
-  });
+  const res = await postJson(
+    "/messages/count_tokens",
+    apiKey,
+    { model, system, messages: [{ role: "user", content }] },
+    20_000,
+  );
   if (!res.ok) throw new Error(`count_tokens failed with status ${res.status}`);
   const data = (await res.json()) as { input_tokens?: number };
   return data.input_tokens ?? 0;
@@ -39,10 +56,10 @@ export async function runAuditMessage(
   content: string,
   maxTokens: number,
 ): Promise<{ result: AuditResult; inputTokens: number; outputTokens: number }> {
-  const res = await fetch(`${API_BASE}/messages`, {
-    method: "POST",
-    headers: headers(apiKey),
-    body: JSON.stringify({
+  const res = await postJson(
+    "/messages",
+    apiKey,
+    {
       model,
       max_tokens: maxTokens,
       system,
@@ -50,8 +67,9 @@ export async function runAuditMessage(
       output_config: {
         format: { type: "json_schema", name: "audit_result", schema: AUDIT_JSON_SCHEMA },
       },
-    }),
-  });
+    },
+    120_000,
+  );
   if (!res.ok) throw new Error(`messages failed with status ${res.status}`);
 
   const data = (await res.json()) as {

@@ -43,22 +43,25 @@ export async function requestAudit(
   }
   const model = anthropic.selectedModel ?? PROVIDERS.anthropic.defaultModel;
 
+  let auditId: string | null = null;
   try {
     const audit = await prisma.repoAudit.create({
       data: { repoId, provider: "anthropic", model, status: "pending", triggeredByLogin: user.login },
     });
-    const enqueued = await enqueueAudit(audit.id);
-    if (!enqueued) {
-      // No DB/queue available — don't leave a row stuck "pending" or falsely report success.
-      await prisma.repoAudit.update({
-        where: { id: audit.id },
-        data: { status: "failed", error: "No queue configured to run the audit.", completedAt: new Date() },
-      });
-      return { ok: false, message: "Could not queue the audit — no queue configured." };
-    }
+    auditId = audit.id;
+    // Whether enqueue returns false (no queue) or throws, the row must not be left "pending".
+    if (!(await enqueueAudit(audit.id))) throw new Error("No queue configured to run the audit.");
     revalidatePath(`/repos/${repoId}/audit`);
     return { ok: true, message: "Audit queued — reload in a moment to see the result." };
   } catch (error) {
+    if (auditId) {
+      await prisma.repoAudit
+        .update({
+          where: { id: auditId },
+          data: { status: "failed", error: "Could not enqueue.", completedAt: new Date() },
+        })
+        .catch(() => {});
+    }
     console.warn("requestAudit failed", briefError(error));
     return { ok: false, message: "Could not queue the audit — please try again." };
   }

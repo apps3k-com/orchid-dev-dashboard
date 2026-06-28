@@ -20,8 +20,14 @@ const TOTAL_CHARS = 360_000;
 /** One collected config file. */
 export type AuditFile = { path: string; content: string };
 
-/** The bounded config set for one audit, plus the commit it was read at and anything dropped. */
-export type AuditContext = { files: AuditFile[]; commitSha: string; omitted: string[] };
+/** The bounded config set for one audit, plus the commit it was read at, anything dropped by the
+ *  size cap (`omitted`), and whether the git tree itself was truncated (an incomplete listing). */
+export type AuditContext = {
+  files: AuditFile[];
+  commitSha: string;
+  omitted: string[];
+  truncated: boolean;
+};
 
 function priority(path: string): number {
   if (ROOT_FILES.has(path)) return 0;
@@ -53,7 +59,8 @@ export async function collectAuditContext(repo: Repo): Promise<AuditContext> {
     tree_sha: commitSha,
     recursive: "true",
   });
-  if (tree.data.truncated) {
+  const truncated = Boolean(tree.data.truncated);
+  if (truncated) {
     console.warn(`audit: tree truncated for ${owner}/${name}; some config files may be missed`);
   }
 
@@ -94,5 +101,5 @@ export async function collectAuditContext(repo: Repo): Promise<AuditContext> {
     }
   }
 
-  return { files, commitSha, omitted };
+  return { files, commitSha, omitted, truncated };
 }
