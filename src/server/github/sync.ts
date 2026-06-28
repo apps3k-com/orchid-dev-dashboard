@@ -4,6 +4,7 @@ import { getApp, getInstallationOctokit } from "@/server/github/app";
 import { type GraphqlPrNode, mapPrNode } from "@/server/github/pr-map";
 import { type GraphqlProjectNode, mapProjectNode } from "@/server/github/projects-map";
 import { reconcileAutomations } from "@/server/automations/reconcile";
+import { syncHooks } from "@/server/github/hooks";
 
 const PR_SEARCH = `
   query($q: String!, $after: String) {
@@ -211,13 +212,14 @@ export async function syncProjects(org: Org): Promise<number> {
 }
 
 /** Full refresh: installations → repos → open PRs → projects per org, then reconcile the
- *  tracked automation installs. */
+ *  tracked automation installs and the agent-hook drift vs the canonical template. */
 export async function syncAll(): Promise<{
   orgs: number;
   repos: number;
   pulls: number;
   projects: number;
   automations: number;
+  hooks: number;
 }> {
   const orgs = await syncInstallations();
   const orgRows = await prisma.org.findMany();
@@ -230,5 +232,6 @@ export async function syncAll(): Promise<{
     projects += await syncProjects(org);
   }
   const automations = await reconcileAutomations();
-  return { orgs, repos, pulls, projects, automations };
+  const hooks = await syncHooks();
+  return { orgs, repos, pulls, projects, automations, hooks };
 }
