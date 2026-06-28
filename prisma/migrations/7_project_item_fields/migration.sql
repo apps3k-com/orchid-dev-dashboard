@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "ProjectItem" ADD COLUMN "priority" TEXT;
+ALTER TABLE "ProjectItem" ADD COLUMN "assignees" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "ProjectItem" ADD COLUMN "labels" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
