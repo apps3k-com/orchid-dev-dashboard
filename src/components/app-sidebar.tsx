@@ -6,6 +6,7 @@ import {
   FolderGit2,
   FolderKanban,
   GitPullRequest,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Tags,
@@ -47,6 +48,7 @@ const VIEWS: NavItem[] = [
 const SETTINGS: NavItem[] = [
   { href: "/automations", label: "Automations", icon: Workflow },
   { href: "/settings/products", label: "Products", icon: Tags },
+  { href: "/settings/ai-providers", label: "AI providers", icon: KeyRound },
 ];
 
 type SidebarUser = { login: string; name: string | null; avatarUrl: string | null };
