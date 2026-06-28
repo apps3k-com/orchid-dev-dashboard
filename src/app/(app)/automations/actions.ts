@@ -78,6 +78,11 @@ export async function installRecipe(
         "Orchid has set the org App credentials and the repo variables " +
         `${Object.keys(config).map((k) => `\`${k}\``).join(", ")}, so the workflow activates on merge.`,
     });
+    await prisma.automationInstall.upsert({
+      where: { repoId_recipeId: { repoId: repo.id, recipeId: recipe.id } },
+      create: { repoId: repo.id, recipeId: recipe.id, version: recipe.version, state: "pending_pr", prUrl },
+      update: { version: recipe.version, state: "pending_pr", prUrl },
+    });
     return { ok: true, message: "Opened a pull request with the automation workflow.", prUrl };
   } catch (error) {
     console.error("installRecipe PR failed", briefError(error));
