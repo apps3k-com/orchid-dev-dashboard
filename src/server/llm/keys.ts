@@ -21,6 +21,10 @@ export async function getProviderKeySummaries(): Promise<ProviderKeySummary[]> {
   const byProvider = new Map(rows.map((row) => [row.provider, row]));
   return Object.values(PROVIDERS).map((cfg) => {
     const row = byProvider.get(cfg.id);
+    // Fall back when a stored model is no longer offered, so replacing a key without touching the
+    // select can't round-trip a retired model id that saveProviderKey would then reject.
+    const selectedModel =
+      row?.defaultModel && cfg.models.includes(row.defaultModel) ? row.defaultModel : null;
     return {
       provider: cfg.id,
       label: cfg.label,
@@ -29,7 +33,7 @@ export async function getProviderKeySummaries(): Promise<ProviderKeySummary[]> {
       configured: Boolean(row),
       status: row?.status ?? "not configured",
       maskedHint: row?.maskedHint ?? null,
-      selectedModel: row?.defaultModel ?? null,
+      selectedModel,
     };
   });
 }

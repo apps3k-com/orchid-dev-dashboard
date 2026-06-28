@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { saveProviderKeyAction, type SaveKeyState } from "@/app/(app)/settings/ai-providers/actions";
 
+/** Initial inline result state before the first save attempt. */
 const INITIAL: SaveKeyState = { ok: false, message: "" };
 
 /** Set or replace a provider's API key (default model + key); the action validates before saving. */

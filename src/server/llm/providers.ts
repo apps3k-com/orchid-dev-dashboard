@@ -1,6 +1,7 @@
 // Provider/model registry for the BYOK auditor. Model IDs live here (a config map, not scattered
 // through code) so they can be re-verified/updated as providers ship new versions. v1 = Anthropic.
 
+/** Supported BYOK provider ids (v1 = Anthropic; OpenAI/Cursor are later phases). */
 export type ProviderId = "anthropic";
 
 /** Static configuration for one BYOK LLM provider. */
@@ -24,6 +25,7 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
   },
 };
 
+/** All supported provider ids, for iteration. */
 export const PROVIDER_IDS = Object.keys(PROVIDERS) as ProviderId[];
 
 /** Narrow an arbitrary string to a known provider id. */
