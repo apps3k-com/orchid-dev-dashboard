@@ -11,8 +11,13 @@ import { listAppInstallations } from "@/server/github/app";
 export const dynamic = "force-dynamic";
 
 /** Authenticated overview: cache stat cards, managed orgs, and a manual refresh. */
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ queued?: string }>;
+}) {
   const user = await requireUser();
+  const { queued } = await searchParams;
   let installations: Awaited<ReturnType<typeof listAppInstallations>> = [];
   let installationsFailed = false;
   try {
@@ -40,6 +45,12 @@ export default async function DashboardPage() {
           </Button>
         </form>
       </div>
+
+      {queued ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          Sync queued — reload in a few seconds to see updated data.
+        </p>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatisticsCard
