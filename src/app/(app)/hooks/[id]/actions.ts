@@ -2,6 +2,7 @@
 
 import { getSessionUser } from "@/server/auth/session";
 import { prisma } from "@/server/db";
+import { isOrgMember } from "@/server/github/activation";
 import { fetchTemplateHookBlobs } from "@/server/github/hooks";
 import { proposeFiles } from "@/server/github/writeback";
 import { briefError } from "@/server/log";
@@ -24,6 +25,19 @@ export async function resyncRepoHooks(
 
   const repo = await prisma.repo.findUnique({ where: { id: repoId } });
   if (!repo) return { ok: false, message: "Repository not found." };
+
+  // Authorization: repoId is client-supplied, so gate the PR to members of the target repo's org
+  // (signed-in alone is not enough — a member of one managed org must not target another's repo).
+  const org = await prisma.org.findUnique({ where: { id: repo.orgId } });
+  if (!org) return { ok: false, message: "Organization not found." };
+  try {
+    if (!(await isOrgMember(org, user.login))) {
+      return { ok: false, message: `You are not a member of ${org.login}.` };
+    }
+  } catch (error) {
+    console.warn("resyncRepoHooks membership check failed", briefError(error));
+    return { ok: false, message: "Could not verify your organization membership — please try again." };
+  }
 
   const drift = await prisma.repoHookState.findMany({
     where: { repoId, status: { in: ["outdated", "missing"] }, templateSha: { not: null } },

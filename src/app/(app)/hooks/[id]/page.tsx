@@ -61,7 +61,9 @@ export default async function RepoHooksPage({ params }: { params: Promise<{ id: 
           {driftCount > 0 ? (
             <HooksResyncForm repoId={repo.id} driftCount={driftCount} />
           ) : (
-            <p className="text-sm text-muted-foreground">In sync — nothing to re-sync.</p>
+            <p className="text-sm text-muted-foreground">
+              Nothing to re-sync — no outdated or missing files.
+            </p>
           )}
         </>
       )}
