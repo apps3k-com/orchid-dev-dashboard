@@ -40,6 +40,14 @@ describe("validateFindings", () => {
     expect(kept).toHaveLength(0);
   });
 
+  it("keeps a 'missing' finding even though its file is (by definition) not audited", () => {
+    const kept = validateFindings(
+      [finding({ category: "missing", file: ".github/workflows/ci.yml" })],
+      audited,
+    );
+    expect(kept).toHaveLength(1);
+  });
+
   it("drops findings with an unknown severity or category", () => {
     const kept = validateFindings(
       [

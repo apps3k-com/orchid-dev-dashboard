@@ -88,15 +88,18 @@ export const AUDIT_JSON_SCHEMA = {
 const SEVERITY_SET = new Set<string>(SEVERITIES);
 const CATEGORY_SET = new Set<string>(CATEGORIES);
 
-/** Drop hallucinated/invalid findings: a finding survives only if it cites a file that was actually
- *  in the audited set and uses a known severity + category. Defends against fabricated paths even
- *  though structured output already constrains the shape. */
+/** Drop hallucinated/invalid findings and keep known severity + category. A finding about an
+ *  EXISTING file must cite a file that was actually audited (anti-hallucination); `missing`-category
+ *  findings are exempt from that check because they recommend a file that is, by definition, absent
+ *  from the audited set. */
 export function validateFindings(
   findings: AuditFindingResult[],
   auditedFiles: Set<string>,
 ): AuditFindingResult[] {
   return findings.filter(
     (f) =>
-      auditedFiles.has(f.file) && SEVERITY_SET.has(f.severity) && CATEGORY_SET.has(f.category),
+      (f.category === "missing" || auditedFiles.has(f.file)) &&
+      SEVERITY_SET.has(f.severity) &&
+      CATEGORY_SET.has(f.category),
   );
 }

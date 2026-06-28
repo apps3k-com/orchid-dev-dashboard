@@ -22,7 +22,9 @@ export async function startWorker(): Promise<void> {
       },
       "audit:run": async (payload) => {
         const { auditId } = (payload ?? {}) as { auditId?: string };
-        if (auditId) await runAudit(auditId);
+        // Fail (don't silently ack) a malformed job so a queue-contract regression is visible.
+        if (!auditId) throw new Error("audit:run job is missing auditId");
+        await runAudit(auditId);
       },
     },
     crontab: "*/5 * * * * sync:all",

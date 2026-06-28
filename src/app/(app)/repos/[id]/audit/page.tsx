@@ -84,8 +84,9 @@ export default async function RepoAuditPage({ params }: { params: Promise<{ id: 
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">{repo.nameWithOwner}</h1>
         <p className="text-sm text-muted-foreground">
           LLM audit of this repo&apos;s agent &amp; hook config (<code>.claude/</code>,{" "}
-          <code>.codex/</code>, <code>AGENTS.md</code>, workflows) for redundancies,
-          misconfigurations and optimizations. Findings are advisory.
+          <code>.codex/</code>, <code>AGENTS.md</code>/<code>CLAUDE.md</code>/<code>CODEX.md</code>,{" "}
+          <code>.coderabbit.yaml</code>, <code>docs/agents/*</code>, and GitHub Actions workflows)
+          for redundancies, misconfigurations and optimizations. Findings are advisory.
         </p>
       </div>
 
