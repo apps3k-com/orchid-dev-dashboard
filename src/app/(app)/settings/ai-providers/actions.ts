@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import { getSessionUser } from "@/server/auth/session";
 import { isLlmAdmin } from "@/server/llm/admin";
 import { saveProviderKey } from "@/server/llm/keys";
@@ -29,6 +31,8 @@ export async function saveProviderKeyAction(
   try {
     const result = await saveProviderKey(provider, apiKey, model);
     if (!result.ok) return { ok: false, message: result.error ?? "Could not save the key." };
+    // Refresh the server-rendered status badge + masked hint (the form only updates inline).
+    revalidatePath("/settings/ai-providers");
     return { ok: true, message: "Key validated and saved." };
   } catch (error) {
     console.warn("saveProviderKeyAction failed", briefError(error));

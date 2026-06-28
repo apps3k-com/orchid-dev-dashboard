@@ -7,6 +7,7 @@ import { getProviderKeySummaries } from "@/server/llm/keys";
 
 export const dynamic = "force-dynamic";
 
+/** Badge variants for persisted provider-key validation states. */
 const STATUS_VARIANT: Record<string, "secondary" | "destructive" | "outline"> = {
   valid: "secondary",
   invalid: "destructive",

@@ -204,7 +204,7 @@ model ProviderKey {
   id              String    @id @default(cuid())
   provider        String    @unique // "anthropic" (openai/cursor are later phases)
   keyEnc          String // encryptSecret(apiKey) — iv:tag:ciphertext, base64
-  maskedHint      String // last-4 of the key only, for display
+  maskedHint      String    @db.VarChar(8) // last-4 of the key only ("…XXXX") — capped so the column can never hold key material
   defaultModel    String? // selected model id (from the provider's config map)
   status          String    @default("unchecked") // unchecked | valid | invalid
   lastValidatedAt DateTime?

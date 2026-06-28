@@ -3,7 +3,7 @@ CREATE TABLE "ProviderKey" (
     "id" TEXT NOT NULL,
     "provider" TEXT NOT NULL,
     "keyEnc" TEXT NOT NULL,
-    "maskedHint" TEXT NOT NULL,
+    "maskedHint" VARCHAR(8) NOT NULL,
     "defaultModel" TEXT,
     "status" TEXT NOT NULL DEFAULT 'unchecked',
     "lastValidatedAt" TIMESTAMP(3),
