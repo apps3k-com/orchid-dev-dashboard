@@ -1,12 +1,26 @@
 import type { ProposedFile } from "@/server/github/writeback";
 
+/** A per-repo configuration value a recipe needs; collected at install and written as a repo
+ *  Actions variable named exactly `name` (the workflow reads it via `vars.<name>`). */
+export type RecipeInput = {
+  name: string;
+  label: string;
+  placeholder?: string;
+  description?: string;
+  /** HTML input type + server-side validation hint (e.g. "url"). Defaults to text. */
+  type?: string;
+  /** Optional regex (source string) the value must match — enforced server-side and as the
+   *  field's HTML `pattern`. Use for recipe-specific shapes beyond `type`. */
+  pattern?: string;
+};
+
 /** An automation recipe: a named bundle of workflow file(s) Orchid can provision into a repo. */
 export type Recipe = {
   id: string;
   name: string;
   description: string;
-  /** The repo variables/secrets a maintainer sets to activate the workflow (shown in the PR). */
-  activation: string[];
+  /** Per-repo config the installer collects (set as repo variables on install). */
+  inputs: RecipeInput[];
   /** Render the repo-relative files this recipe writes (pure). */
   render: () => ProposedFile[];
 };
@@ -20,8 +34,8 @@ const ADD_TO_PROJECT = "actions/add-to-project@5afcf98fcd03f1c2f92c3c83f58ae2432
 const AUTO_ADD_TO_PROJECT_WORKFLOW = [
   "# >>> orchid: recipe=auto-add-to-project version=1 <<<",
   "# Managed by Orchid — adds newly opened issues to a GitHub Project.",
-  "# Activate by setting repo variables ORCHID_PROJECT_URL and ORCHID_APP_ID and the",
-  "# secret ORCHID_APP_PRIVATE_KEY. Until both variables are set the guard keeps this inert.",
+  "# ORCHID_APP_ID + ORCHID_PROJECT_URL are variables; ORCHID_APP_PRIVATE_KEY is a pre-provisioned",
+  "# org secret (set by Orchid). The guard checks the variables (secrets can't be tested in if:).",
   "name: Orchid auto-add issues to project",
   "",
   "on:",
@@ -54,8 +68,17 @@ const autoAddToProject: Recipe = {
   id: "auto-add-to-project",
   name: "Auto-add issues to a Project",
   description:
-    "When an issue is opened, add it to a GitHub Project. The workflow self-disables until activated.",
-  activation: ["vars.ORCHID_PROJECT_URL", "vars.ORCHID_APP_ID", "secrets.ORCHID_APP_PRIVATE_KEY"],
+    "When an issue is opened, add it to a GitHub Project. Orchid sets the org App credentials and the project URL; the workflow activates on merge.",
+  inputs: [
+    {
+      name: "ORCHID_PROJECT_URL",
+      label: "Project URL",
+      placeholder: "https://github.com/orgs/<org>/projects/<number>",
+      description: "The GitHub Project newly opened issues are added to.",
+      type: "url",
+      pattern: "^https://github\\.com/(?:orgs|users)/[^/]+/projects/\\d+",
+    },
+  ],
   render: () => [
     {
       path: ".github/workflows/orchid-auto-add-to-project.yml",

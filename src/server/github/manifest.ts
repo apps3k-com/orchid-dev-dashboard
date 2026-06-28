@@ -25,6 +25,7 @@ export function buildAppManifest(appUrl: string, name: string) {
       metadata: "read",
       organization_projects: "write",
       variables: "write",
+      organization_secrets: "write",
     },
     default_events: ["issues", "pull_request"],
   } as const;

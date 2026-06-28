@@ -45,3 +45,6 @@ export async function getInstallationOctokit(installationId: number) {
   const app = await getApp();
   return app.getInstallationOctokit(installationId);
 }
+
+/** The installation-scoped Octokit type (used to type write helpers). */
+export type InstallationOctokit = Awaited<ReturnType<typeof getInstallationOctokit>>;

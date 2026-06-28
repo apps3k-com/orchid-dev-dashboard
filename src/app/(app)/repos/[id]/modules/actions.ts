@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getSessionUser } from "@/server/auth/session";
 import { prisma } from "@/server/db";
 import { proposeModules } from "@/server/github/modules";
+import { briefError } from "@/server/log";
 
 /** Result of {@link saveModules}, surfaced inline in the editor form (with the new PR URL). */
 export type SaveModulesState = { ok: boolean; message: string; prUrl?: string };
@@ -44,7 +45,7 @@ export async function saveModules(
     if (error instanceof Error && error.message === NO_CHANGES) {
       return { ok: false, message: NO_CHANGES };
     }
-    console.error("saveModules failed", error);
+    console.error("saveModules failed", briefError(error));
     return { ok: false, message: "Could not open the pull request — please try again." };
   }
 }
