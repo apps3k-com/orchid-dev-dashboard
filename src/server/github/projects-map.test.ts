@@ -37,7 +37,8 @@ describe("mapProjectNode", () => {
 const issueItem: GraphqlProjectItemNode = {
   id: "PVTI_item_1",
   type: "ISSUE",
-  fieldValueByName: { name: "In Progress" }, // Status resolved server-side by fieldValueByName
+  status: { name: "In Progress" }, // aliased fieldValueByName(name: "Status")
+  priority: { name: "P1" }, // aliased fieldValueByName(name: "Priority")
   content: {
     number: 42,
     title: "Wire the board",
@@ -45,38 +46,49 @@ const issueItem: GraphqlProjectItemNode = {
     state: "OPEN",
     updatedAt: "2026-06-27T09:00:00Z",
     repository: { nameWithOwner: "apps3k-com/orchid-dev-dashboard" },
+    assignees: { nodes: [{ login: "bvk" }, { login: "octocat" }] },
+    labels: { nodes: [{ name: "bug" }, { name: "p1" }] },
   },
 };
 
 describe("mapProjectItemNode", () => {
-  it("lifts the Status option and content fields", () => {
+  it("lifts Status/Priority options + assignees, labels, and content fields", () => {
     const m = mapProjectItemNode(issueItem);
     expect(m.nodeId).toBe("PVTI_item_1");
     expect(m.type).toBe("ISSUE");
     expect(m.status).toBe("In Progress");
+    expect(m.priority).toBe("P1");
+    expect(m.assignees).toEqual(["bvk", "octocat"]);
+    expect(m.labels).toEqual(["bug", "p1"]);
     expect(m.number).toBe(42);
     expect(m.state).toBe("OPEN");
     expect(m.contentRepo).toBe("apps3k-com/orchid-dev-dashboard");
     expect(m.ghUpdatedAt).toBeInstanceOf(Date);
   });
 
-  it("defaults status to null when the item has no Status value", () => {
-    const m = mapProjectItemNode({ ...issueItem, fieldValueByName: null });
+  it("defaults status/priority to null and lists to empty when absent", () => {
+    const m = mapProjectItemNode({ ...issueItem, status: null, priority: null, content: { title: "x" } });
     expect(m.status).toBeNull();
+    expect(m.priority).toBeNull();
+    expect(m.assignees).toEqual([]);
+    expect(m.labels).toEqual([]);
   });
 
-  it("handles a draft item with no content url/number/repo", () => {
+  it("handles a draft item with no content url/number/repo/labels", () => {
     const m = mapProjectItemNode({
       id: "PVTI_draft",
       type: "DRAFT_ISSUE",
-      fieldValueByName: { name: "Todo" },
-      content: { title: "Spike: nested pagination", updatedAt: null },
+      status: { name: "Todo" },
+      priority: null,
+      content: { title: "Spike: nested pagination", updatedAt: null, assignees: { nodes: [{ login: "bvk" }] } },
     });
     expect(m.title).toBe("Spike: nested pagination");
     expect(m.url).toBeNull();
     expect(m.number).toBeNull();
     expect(m.contentRepo).toBeNull();
     expect(m.status).toBe("Todo");
+    expect(m.assignees).toEqual(["bvk"]);
+    expect(m.labels).toEqual([]);
     expect(m.ghUpdatedAt).toBeNull();
   });
 
@@ -84,10 +96,12 @@ describe("mapProjectItemNode", () => {
     const m = mapProjectItemNode({
       id: "PVTI_x",
       type: "REDACTED",
-      fieldValueByName: null,
+      status: null,
+      priority: null,
       content: null,
     });
     expect(m.title).toBe("(untitled)");
     expect(m.status).toBeNull();
+    expect(m.assignees).toEqual([]);
   });
 });

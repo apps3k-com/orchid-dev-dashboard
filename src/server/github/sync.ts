@@ -5,6 +5,7 @@ import { type GraphqlPrNode, mapPrNode } from "@/server/github/pr-map";
 import {
   type GraphqlProjectItemNode,
   type GraphqlProjectNode,
+  PRIORITY_FIELD_NAME,
   STATUS_FIELD_NAME,
   mapProjectItemNode,
   mapProjectNode,
@@ -67,13 +68,27 @@ const PROJECT_ITEMS_QUERY = `
         items(first: 100, after: $after) {
           nodes {
             id type
-            fieldValueByName(name: "${STATUS_FIELD_NAME}") {
+            status: fieldValueByName(name: "${STATUS_FIELD_NAME}") {
+              ... on ProjectV2ItemFieldSingleSelectValue { name }
+            }
+            priority: fieldValueByName(name: "${PRIORITY_FIELD_NAME}") {
               ... on ProjectV2ItemFieldSingleSelectValue { name }
             }
             content {
-              ... on Issue { number title url state updatedAt repository { nameWithOwner } }
-              ... on PullRequest { number title url state updatedAt repository { nameWithOwner } }
-              ... on DraftIssue { title updatedAt }
+              ... on Issue {
+                number title url state updatedAt repository { nameWithOwner }
+                assignees(first: 10) { nodes { login } }
+                labels(first: 10) { nodes { name } }
+              }
+              ... on PullRequest {
+                number title url state updatedAt repository { nameWithOwner }
+                assignees(first: 10) { nodes { login } }
+                labels(first: 10) { nodes { name } }
+              }
+              ... on DraftIssue {
+                title updatedAt
+                assignees(first: 10) { nodes { login } }
+              }
             }
           }
           pageInfo { hasNextPage endCursor }
@@ -282,6 +297,9 @@ export async function syncProjectItems(): Promise<number> {
             number: m.number,
             state: m.state,
             status: m.status,
+            priority: m.priority,
+            assignees: m.assignees,
+            labels: m.labels,
             contentRepo: m.contentRepo,
             ghUpdatedAt: m.ghUpdatedAt,
             syncedAt: new Date(),

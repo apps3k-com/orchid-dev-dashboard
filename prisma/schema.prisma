@@ -108,6 +108,9 @@ model ProjectItem {
   number      Int?
   state       String? // OPEN | CLOSED | MERGED (issues/PRs)
   status      String? // Status single-select option name (null = no Status)
+  priority    String? // Priority single-select option name, if the project has one
+  assignees   String[] // assignee logins
+  labels      String[] // label names
   contentRepo String? // nameWithOwner of the item's source repo
   ghUpdatedAt DateTime?
   syncedAt    DateTime  @default(now())
