@@ -1,6 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table";
@@ -41,7 +42,20 @@ const columns: ColumnDef<ProjectRow>[] = [
   {
     accessorKey: "items",
     header: "Items",
-    cell: ({ row }) => <span className="tabular-nums">{row.getValue("items")}</span>,
+    cell: ({ row }) => {
+      const count = row.getValue<number>("items");
+      return count > 0 ? (
+        <Link
+          href={`/projects/${row.original.id}`}
+          className="tabular-nums hover:underline"
+          aria-label={`Open ${row.original.title} board (${count} items)`}
+        >
+          {count}
+        </Link>
+      ) : (
+        <span className="tabular-nums text-muted-foreground">0</span>
+      );
+    },
   },
   {
     accessorKey: "status",
