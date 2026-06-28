@@ -2,9 +2,15 @@ import type { Org } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { getApp, getInstallationOctokit } from "@/server/github/app";
 import { type GraphqlPrNode, mapPrNode } from "@/server/github/pr-map";
-import { type GraphqlProjectNode, mapProjectNode } from "@/server/github/projects-map";
+import {
+  type GraphqlProjectItemNode,
+  type GraphqlProjectNode,
+  mapProjectItemNode,
+  mapProjectNode,
+} from "@/server/github/projects-map";
 import { reconcileAutomations } from "@/server/automations/reconcile";
 import { syncHooks } from "@/server/github/hooks";
+import { briefError } from "@/server/log";
 
 const PR_SEARCH = `
   query($q: String!, $after: String) {
@@ -48,6 +54,42 @@ interface ProjectsResult {
   organization: {
     projectsV2: {
       nodes: Array<GraphqlProjectNode | null>;
+      pageInfo: { hasNextPage: boolean; endCursor: string | null };
+    };
+  } | null;
+}
+
+const PROJECT_ITEMS_QUERY = `
+  query($projectId: ID!, $after: String) {
+    node(id: $projectId) {
+      ... on ProjectV2 {
+        items(first: 100, after: $after) {
+          nodes {
+            id type
+            fieldValues(first: 20) {
+              nodes {
+                ... on ProjectV2ItemFieldSingleSelectValue {
+                  name
+                  field { ... on ProjectV2FieldCommon { name } }
+                }
+              }
+            }
+            content {
+              ... on Issue { number title url state updatedAt repository { nameWithOwner } }
+              ... on PullRequest { number title url state updatedAt repository { nameWithOwner } }
+              ... on DraftIssue { title updatedAt }
+            }
+          }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    }
+  }`;
+
+interface ProjectItemsResult {
+  node: {
+    items?: {
+      nodes: Array<GraphqlProjectItemNode | null>;
       pageInfo: { hasNextPage: boolean; endCursor: string | null };
     };
   } | null;
@@ -211,13 +253,77 @@ export async function syncProjects(org: Org): Promise<number> {
   return seen.length;
 }
 
-/** Full refresh: installations → repos → open PRs → projects per org, then reconcile the
- *  tracked automation installs and the agent-hook drift vs the canonical template. */
+/** Refresh the cached items (issues/PRs/drafts) + their Status column for every open project,
+ *  for the per-project board. Paginates the items connection; best-effort per project (a transient
+ *  error leaves that project's cached items intact). Returns the number of items written. */
+export async function syncProjectItems(): Promise<number> {
+  const projects = await prisma.project.findMany({ where: { closed: false }, include: { org: true } });
+  let total = 0;
+  for (const project of projects) {
+    if (!project.org.installationId) continue;
+    const octokit = await getInstallationOctokit(project.org.installationId);
+    const seen: string[] = [];
+    let after: string | null = null;
+    let fetched = false;
+
+    try {
+      do {
+        const res: ProjectItemsResult = await octokit.graphql<ProjectItemsResult>(
+          PROJECT_ITEMS_QUERY,
+          { projectId: project.nodeId, after },
+        );
+        const conn = res.node?.items;
+        if (!conn) break;
+        fetched = true;
+        for (const node of conn.nodes) {
+          if (!node?.id) continue;
+          const m = mapProjectItemNode(node);
+          const fields = {
+            projectId: project.id,
+            type: m.type,
+            title: m.title,
+            url: m.url,
+            number: m.number,
+            state: m.state,
+            status: m.status,
+            contentRepo: m.contentRepo,
+            ghUpdatedAt: m.ghUpdatedAt,
+            syncedAt: new Date(),
+          };
+          await prisma.projectItem.upsert({
+            where: { nodeId: m.nodeId },
+            create: { nodeId: m.nodeId, ...fields },
+            update: fields,
+          });
+          seen.push(m.nodeId);
+          total += 1;
+        }
+        after = conn.pageInfo.hasNextPage ? conn.pageInfo.endCursor : null;
+      } while (after);
+    } catch (error) {
+      // Transient/permissions error — skip this project this run, keep its cached items.
+      console.warn(`projects: failed to sync items for ${project.url}`, briefError(error));
+      continue;
+    }
+
+    // Only prune once we actually received an items connection (never wipe on a transient error).
+    if (fetched) {
+      await prisma.projectItem.deleteMany({
+        where: { projectId: project.id, nodeId: { notIn: seen.length > 0 ? seen : ["__none__"] } },
+      });
+    }
+  }
+  return total;
+}
+
+/** Full refresh: installations → repos → open PRs → projects per org, then reconcile the tracked
+ *  automation installs, the per-project board items, and the agent-hook drift vs the template. */
 export async function syncAll(): Promise<{
   orgs: number;
   repos: number;
   pulls: number;
   projects: number;
+  projectItems: number;
   automations: number;
   hooks: number;
 }> {
@@ -231,7 +337,8 @@ export async function syncAll(): Promise<{
     pulls += await syncPulls(org);
     projects += await syncProjects(org);
   }
+  const projectItems = await syncProjectItems();
   const automations = await reconcileAutomations();
   const hooks = await syncHooks();
-  return { orgs, repos, pulls, projects, automations, hooks };
+  return { orgs, repos, pulls, projects, projectItems, automations, hooks };
 }

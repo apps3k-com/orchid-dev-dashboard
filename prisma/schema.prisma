@@ -88,11 +88,31 @@ model Project {
   shortDescription String?
   closed           Boolean   @default(false)
   itemCount        Int       @default(0)
+  items            ProjectItem[]
   ghUpdatedAt      DateTime?
   syncedAt         DateTime  @default(now())
 
   @@unique([orgId, number])
   @@index([orgId])
+}
+
+/// A cached ProjectV2 item (issue/PR/draft) with its Status column, for the per-project board. CACHE.
+model ProjectItem {
+  id          String    @id @default(cuid())
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String
+  nodeId      String    @unique // immutable ProjectV2Item GraphQL node id
+  type        String // ISSUE | PULL_REQUEST | DRAFT_ISSUE
+  title       String
+  url         String?
+  number      Int?
+  state       String? // OPEN | CLOSED | MERGED (issues/PRs)
+  status      String? // Status single-select option name (null = no Status)
+  contentRepo String? // nameWithOwner of the item's source repo
+  ghUpdatedAt DateTime?
+  syncedAt    DateTime  @default(now())
+
+  @@index([projectId])
 }
 
 /// An automation recipe provisioned into a repo (one row per repo + recipe). Orchid is the
