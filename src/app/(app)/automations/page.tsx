@@ -7,9 +7,13 @@ import { prisma } from "@/server/db";
 
 export const dynamic = "force-dynamic";
 
-const STATE_BADGE: Record<string, { label: string; variant: "secondary" | "outline" | "destructive" }> = {
+const STATE_BADGE: Record<
+  string,
+  { label: string; variant: "secondary" | "outline" | "destructive" }
+> = {
   installed: { label: "installed", variant: "secondary" },
   pending_pr: { label: "pending PR", variant: "outline" },
+  outdated: { label: "outdated", variant: "destructive" },
   missing: { label: "missing", variant: "destructive" },
 };
 
@@ -40,54 +44,55 @@ export default async function AutomationsPage() {
         </p>
       </div>
 
-      {repos.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No managed repositories yet — open the Dashboard and click <strong>Refresh data</strong>.
-        </p>
-      ) : (
-        <div className="space-y-4">
-          {RECIPES.map((recipe) => {
-            const recipeInstalls = installs.filter((i) => i.recipeId === recipe.id);
-            return (
-              <Card key={recipe.id}>
-                <CardHeader>
-                  <CardTitle>{recipe.name}</CardTitle>
-                  <CardDescription>{recipe.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {recipeInstalls.length > 0 ? (
-                    <ul className="flex flex-col gap-2 text-sm">
-                      {recipeInstalls.map((install) => {
-                        const badge = STATE_BADGE[install.state] ?? {
-                          label: install.state,
-                          variant: "outline" as const,
-                        };
-                        return (
-                          <li key={install.id} className="flex items-center gap-2">
-                            <span className="text-muted-foreground">{install.repo.nameWithOwner}</span>
-                            <Badge variant={badge.variant}>{badge.label}</Badge>
-                            {install.prUrl ? (
-                              <a
-                                href={install.prUrl}
-                                className="hover:underline"
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                PR<span className="sr-only"> (opens in a new tab)</span>
-                              </a>
-                            ) : null}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : null}
+      <div className="space-y-4">
+        {RECIPES.map((recipe) => {
+          const recipeInstalls = installs.filter((i) => i.recipeId === recipe.id);
+          return (
+            <Card key={recipe.id}>
+              <CardHeader>
+                <CardTitle>{recipe.name}</CardTitle>
+                <CardDescription>{recipe.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {recipeInstalls.length > 0 ? (
+                  <ul className="flex flex-col gap-2 text-sm">
+                    {recipeInstalls.map((install) => {
+                      const badge = STATE_BADGE[install.state] ?? {
+                        label: install.state,
+                        variant: "outline" as const,
+                      };
+                      return (
+                        <li key={install.id} className="flex items-center gap-2">
+                          <span className="text-muted-foreground">{install.repo.nameWithOwner}</span>
+                          <Badge variant={badge.variant}>{badge.label}</Badge>
+                          {install.prUrl ? (
+                            <a
+                              href={install.prUrl}
+                              className="hover:underline"
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              PR<span className="sr-only"> (opens in a new tab)</span>
+                            </a>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
+                {repos.length > 0 ? (
                   <AutomationInstallForm recipeId={recipe.id} inputs={recipe.inputs} repos={repos} />
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No managed repositories to install into yet — open the Dashboard and click{" "}
+                    <strong>Refresh data</strong>.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }

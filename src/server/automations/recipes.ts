@@ -97,3 +97,9 @@ export const RECIPES: Recipe[] = [autoAddToProject];
 export function getRecipe(id: string): Recipe | undefined {
   return RECIPES.find((r) => r.id === id);
 }
+
+/** Extract the managed-header version from a committed workflow file (null if no Orchid header). */
+export function parseManagedVersion(content: string): number | null {
+  const match = content.match(/# >>> orchid: recipe=\S+ version=(\d+)/);
+  return match ? Number(match[1]) : null;
+}
