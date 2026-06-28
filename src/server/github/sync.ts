@@ -78,12 +78,12 @@ const PROJECT_ITEMS_QUERY = `
               ... on Issue {
                 number title url state updatedAt repository { nameWithOwner }
                 assignees(first: 10) { nodes { login } }
-                labels(first: 10) { nodes { name } }
+                labels(first: 50) { nodes { name } }
               }
               ... on PullRequest {
                 number title url state updatedAt repository { nameWithOwner }
                 assignees(first: 10) { nodes { login } }
-                labels(first: 10) { nodes { name } }
+                labels(first: 50) { nodes { name } }
               }
               ... on DraftIssue {
                 title updatedAt
