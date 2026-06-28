@@ -37,13 +37,7 @@ describe("mapProjectNode", () => {
 const issueItem: GraphqlProjectItemNode = {
   id: "PVTI_item_1",
   type: "ISSUE",
-  fieldValues: {
-    nodes: [
-      {}, // an unrelated (non-single-select) field value
-      { name: "In Progress", field: { name: "Status" } },
-      { name: "P1", field: { name: "Priority" } }, // another single-select, not Status
-    ],
-  },
+  fieldValueByName: { name: "In Progress" }, // Status resolved server-side by fieldValueByName
   content: {
     number: 42,
     title: "Wire the board",
@@ -59,18 +53,15 @@ describe("mapProjectItemNode", () => {
     const m = mapProjectItemNode(issueItem);
     expect(m.nodeId).toBe("PVTI_item_1");
     expect(m.type).toBe("ISSUE");
-    expect(m.status).toBe("In Progress"); // picks the Status field, not Priority
+    expect(m.status).toBe("In Progress");
     expect(m.number).toBe(42);
     expect(m.state).toBe("OPEN");
     expect(m.contentRepo).toBe("apps3k-com/orchid-dev-dashboard");
     expect(m.ghUpdatedAt).toBeInstanceOf(Date);
   });
 
-  it("defaults status to null when no Status field value is present", () => {
-    const m = mapProjectItemNode({
-      ...issueItem,
-      fieldValues: { nodes: [{ name: "P1", field: { name: "Priority" } }] },
-    });
+  it("defaults status to null when the item has no Status value", () => {
+    const m = mapProjectItemNode({ ...issueItem, fieldValueByName: null });
     expect(m.status).toBeNull();
   });
 
@@ -78,7 +69,7 @@ describe("mapProjectItemNode", () => {
     const m = mapProjectItemNode({
       id: "PVTI_draft",
       type: "DRAFT_ISSUE",
-      fieldValues: { nodes: [{ name: "Todo", field: { name: "Status" } }] },
+      fieldValueByName: { name: "Todo" },
       content: { title: "Spike: nested pagination", updatedAt: null },
     });
     expect(m.title).toBe("Spike: nested pagination");
@@ -93,7 +84,7 @@ describe("mapProjectItemNode", () => {
     const m = mapProjectItemNode({
       id: "PVTI_x",
       type: "REDACTED",
-      fieldValues: { nodes: [] },
+      fieldValueByName: null,
       content: null,
     });
     expect(m.title).toBe("(untitled)");

@@ -5,6 +5,7 @@ import { type GraphqlPrNode, mapPrNode } from "@/server/github/pr-map";
 import {
   type GraphqlProjectItemNode,
   type GraphqlProjectNode,
+  STATUS_FIELD_NAME,
   mapProjectItemNode,
   mapProjectNode,
 } from "@/server/github/projects-map";
@@ -66,13 +67,8 @@ const PROJECT_ITEMS_QUERY = `
         items(first: 100, after: $after) {
           nodes {
             id type
-            fieldValues(first: 50) {
-              nodes {
-                ... on ProjectV2ItemFieldSingleSelectValue {
-                  name
-                  field { ... on ProjectV2FieldCommon { name } }
-                }
-              }
+            fieldValueByName(name: "${STATUS_FIELD_NAME}") {
+              ... on ProjectV2ItemFieldSingleSelectValue { name }
             }
             content {
               ... on Issue { number title url state updatedAt repository { nameWithOwner } }

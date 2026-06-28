@@ -45,7 +45,11 @@ const columns: ColumnDef<ProjectRow>[] = [
     cell: ({ row }) => {
       const count = row.getValue<number>("items");
       return count > 0 ? (
-        <Link href={`/projects/${row.original.id}`} className="tabular-nums hover:underline">
+        <Link
+          href={`/projects/${row.original.id}`}
+          className="tabular-nums hover:underline"
+          aria-label={`Open ${row.original.title} board (${count} items)`}
+        >
           {count}
         </Link>
       ) : (

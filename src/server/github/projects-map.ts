@@ -39,17 +39,13 @@ export function mapProjectNode(node: GraphqlProjectNode): ProjectRecord {
 /** The single-select project field whose option names the board columns. GitHub's default. */
 export const STATUS_FIELD_NAME = "Status";
 
-/** A single-select field value on a project item (only this union member carries an option name). */
-interface SingleSelectFieldValue {
-  name: string | null;
-  field: { name: string } | null;
-}
-
-/** A ProjectV2 item node (issue/PR/draft) as returned by the project-items query. */
+/** A ProjectV2 item node (issue/PR/draft) as returned by the project-items query. The Status
+ *  single-select value is fetched directly by name via `fieldValueByName` — no `fieldValues`
+ *  pagination, so it can never be truncated on items with many populated fields. */
 export interface GraphqlProjectItemNode {
   id: string;
   type: string; // ISSUE | PULL_REQUEST | DRAFT_ISSUE | REDACTED
-  fieldValues: { nodes: Array<Partial<SingleSelectFieldValue> | Record<string, never>> };
+  fieldValueByName: { name: string | null } | null;
   content: {
     number?: number;
     title?: string;
@@ -73,14 +69,10 @@ export interface ProjectItemRecord {
   ghUpdatedAt: Date | null;
 }
 
-/** Map a ProjectV2 item node to a flat cache record, lifting its Status option out of the field
- *  values (pure — unit-tested). Items without a Status value get `status: null` (= "No Status"). */
+/** Map a ProjectV2 item node to a flat cache record, lifting its Status option (fetched by name
+ *  via `fieldValueByName`) — pure, unit-tested. Items without a Status value get `status: null`
+ *  (= "No Status"). */
 export function mapProjectItemNode(node: GraphqlProjectItemNode): ProjectItemRecord {
-  const status =
-    node.fieldValues.nodes.find(
-      (value): value is SingleSelectFieldValue =>
-        "field" in value && value.field?.name === STATUS_FIELD_NAME,
-    )?.name ?? null;
   const content = node.content;
   return {
     nodeId: node.id,
@@ -89,7 +81,7 @@ export function mapProjectItemNode(node: GraphqlProjectItemNode): ProjectItemRec
     url: content?.url ?? null,
     number: content?.number ?? null,
     state: content?.state ?? null,
-    status,
+    status: node.fieldValueByName?.name ?? null,
     contentRepo: content?.repository?.nameWithOwner ?? null,
     ghUpdatedAt: content?.updatedAt ? new Date(content.updatedAt) : null,
   };
