@@ -1,5 +1,6 @@
 import { type InstallationOctokit, getInstallationOctokit } from "@/server/github/app";
 import { isNotFound } from "@/server/github/errors";
+import type { ProposedFile } from "@/server/github/writeback";
 import { briefError } from "@/server/log";
 import { prisma } from "@/server/db";
 
@@ -152,4 +153,34 @@ export async function syncHooks(): Promise<number> {
     count += states.length;
   }
   return count;
+}
+
+/** Fetch the canonical-template content for a set of hook paths (by their cached template blob SHA)
+ *  so a re-sync PR can write the template's version into a repo. Throws if the template repo is not
+ *  configured/installed. */
+export async function fetchTemplateHookBlobs(
+  files: { path: string; templateSha: string }[],
+): Promise<ProposedFile[]> {
+  const templateRepo = process.env.ORCHID_TEMPLATE_REPO;
+  if (!templateRepo) throw new Error("No ORCHID_TEMPLATE_REPO configured.");
+  const [tOwner, tName] = templateRepo.split("/");
+  if (!tOwner || !tName) throw new Error(`Invalid ORCHID_TEMPLATE_REPO: ${templateRepo}`);
+  const tOrg = await prisma.org.findFirst({ where: { login: tOwner } });
+  if (!tOrg?.installationId) throw new Error(`Template org ${tOwner} is not installed.`);
+  const octokit = await getInstallationOctokit(tOrg.installationId);
+
+  const out: ProposedFile[] = [];
+  for (const file of files) {
+    const res = await octokit.request("GET /repos/{owner}/{repo}/git/blobs/{file_sha}", {
+      owner: tOwner,
+      repo: tName,
+      file_sha: file.templateSha,
+    });
+    const content =
+      res.data.encoding === "base64"
+        ? Buffer.from(res.data.content, "base64").toString("utf8")
+        : res.data.content;
+    out.push({ path: file.path, content });
+  }
+  return out;
 }

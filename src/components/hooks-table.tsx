@@ -1,6 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table";
@@ -26,7 +27,11 @@ const columns: ColumnDef<HookRow>[] = [
   {
     accessorKey: "repo",
     header: "Repository",
-    cell: ({ row }) => <span className="text-muted-foreground">{row.getValue("repo")}</span>,
+    cell: ({ row }) => (
+      <Link href={`/hooks/${row.original.id}`} className="text-muted-foreground hover:underline">
+        {row.getValue("repo")}
+      </Link>
+    ),
   },
   {
     accessorKey: "status",
