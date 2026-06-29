@@ -80,7 +80,9 @@ export default async function RepoAuditPage({ params }: { params: Promise<{ id: 
 
   const audit = repo.audits[0] ?? null;
   const anthropic = (await getProviderKeySummaries()).find((s) => s.provider === "anthropic");
-  const keyReady = Boolean(anthropic?.configured && anthropic.status === "valid");
+  const keyReady = Boolean(
+    anthropic?.configured && (anthropic.status === "valid" || anthropic.status === "rate_limited"),
+  );
   const model = anthropic?.selectedModel ?? PROVIDERS.anthropic.defaultModel;
 
   return (

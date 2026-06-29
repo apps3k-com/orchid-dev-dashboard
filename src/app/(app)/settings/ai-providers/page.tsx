@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 const STATUS_VARIANT: Record<string, "secondary" | "destructive" | "outline"> = {
   valid: "secondary",
   invalid: "destructive",
+  rate_limited: "outline",
   unchecked: "outline",
   "not configured": "outline",
 };

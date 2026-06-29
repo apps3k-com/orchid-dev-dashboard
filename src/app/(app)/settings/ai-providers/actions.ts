@@ -30,10 +30,13 @@ export async function saveProviderKeyAction(
 
   try {
     const result = await saveProviderKey(provider, apiKey, model);
-    if (!result.ok) return { ok: false, message: result.error ?? "Could not save the key." };
+    if (!result.ok) return { ok: false, message: result.error || "Could not save the key." };
     // Refresh the server-rendered status badge + masked hint (the form only updates inline).
     revalidatePath("/settings/ai-providers");
-    return { ok: true, message: "Key validated and saved." };
+    return {
+      ok: true,
+      message: result.warning ? `Key saved — ${result.warning}` : "Key validated and saved.",
+    };
   } catch (error) {
     console.warn("saveProviderKeyAction failed", briefError(error));
     return { ok: false, message: "Could not save the key — please try again." };

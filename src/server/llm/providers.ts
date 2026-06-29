@@ -42,13 +42,14 @@ export function isProviderId(value: string): value is ProviderId {
 }
 
 /** Cheaply verify a provider key works, without spending tokens. For Anthropic this is the free
- *  `count_tokens` endpoint (200 = valid, 401/403 = bad key). Network errors are reported as not-ok
- *  rather than thrown. Never logs the key or the raw provider response (which can echo the key). */
+ *  `count_tokens` endpoint: 200 = valid; 401/403 = bad key; and 429 or a 400/402 usage-or-credit cap
+ *  = `rateLimited` (the key authenticated, so it is valid but temporarily capped). Network errors are
+ *  reported as not-ok rather than thrown. Never logs the key or the raw provider response. */
 export async function validateProviderKey(
   provider: ProviderId,
   apiKey: string,
   model: string,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; rateLimited?: boolean }> {
   if (provider !== "anthropic") return { ok: false, error: "Unsupported provider." };
 
   const controller = new AbortController();
@@ -66,10 +67,30 @@ export async function validateProviderKey(
     });
     if (res.ok) return { ok: true };
     if (res.status === 401 || res.status === 403) return { ok: false, error: "Invalid API key." };
-    if (res.status === 402) {
-      return { ok: false, error: "Key is valid but the account has no credits — top it up and retry." };
+    // Parse the provider's own error detail (parsed message only — never the raw body, which can echo
+    // the key) so the failure is actionable.
+    let detail = "";
+    try {
+      const body = (await res.json()) as { error?: { message?: string } };
+      detail = body.error?.message ?? "";
+    } catch {
+      // non-JSON error body — ignore
     }
-    return { ok: false, error: `Provider returned status ${res.status}.` };
+    // The key AUTHENTICATED (past 401/403) but the account hit a usage/credit/rate cap: Anthropic
+    // returns 400 (not 402) for "credit balance too low" and for usage-limit caps, and 429 for rate
+    // limits. The key is valid → flag it rate-limited so the caller can still store it + show status.
+    if (
+      res.status === 429 ||
+      res.status === 402 ||
+      /credit balance|usage limit|rate limit/i.test(detail)
+    ) {
+      return {
+        ok: false,
+        rateLimited: true,
+        error: detail || "Rate-limited or out of credits — the key is valid but temporarily capped.",
+      };
+    }
+    return { ok: false, error: `Provider returned status ${res.status}${detail ? `: ${detail}` : ""}.` };
   } catch {
     return { ok: false, error: "Could not reach the provider — please retry." };
   } finally {

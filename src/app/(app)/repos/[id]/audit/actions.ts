@@ -37,7 +37,10 @@ export async function requestAudit(
   if (!repo) return { ok: false, message: "Repository not found." };
 
   const anthropic = (await getProviderKeySummaries()).find((s) => s.provider === "anthropic");
-  if (!anthropic?.configured || anthropic.status !== "valid") {
+  if (
+    !anthropic?.configured ||
+    (anthropic.status !== "valid" && anthropic.status !== "rate_limited")
+  ) {
     return {
       ok: false,
       message: "Configure a valid Anthropic key in Settings → AI providers first.",
