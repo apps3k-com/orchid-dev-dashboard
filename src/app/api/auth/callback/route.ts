@@ -5,6 +5,7 @@ import { createSession } from "@/server/auth/session";
 import { prisma } from "@/server/db";
 import { appUrl } from "@/server/env";
 import { getApp, listAppInstallations } from "@/server/github/app";
+import { isNotFound } from "@/server/github/errors";
 import { briefError } from "@/server/log";
 
 /**
@@ -18,9 +19,13 @@ export async function GET(req: Request) {
   const state = params.get("state");
   const jar = await cookies();
   const expected = jar.get("orchid_oauth_state")?.value;
-  if (!code || !state || !expected || state !== expected) {
-    return NextResponse.redirect(new URL("/login?error=state", appUrl()));
-  }
+  // Every terminal redirect clears the one-time CSRF state cookie — success and failure alike.
+  const fail = (reason: string) => {
+    const res = NextResponse.redirect(new URL(`/login?error=${reason}`, appUrl()));
+    res.cookies.delete("orchid_oauth_state");
+    return res;
+  };
+  if (!code || !state || !expected || state !== expected) return fail("state");
 
   try {
     const app = await getApp();
@@ -40,13 +45,13 @@ export async function GET(req: Request) {
           allowed = true;
           break;
         }
-      } catch {
-        // not a member of this org — keep checking
+      } catch (error) {
+        // 404 = not a member of this org → keep checking. Any other failure (outage, bad token,
+        // rate limit) must NOT be misread as "not a member" — rethrow to the outer server handler.
+        if (!isNotFound(error)) throw error;
       }
     }
-    if (!allowed) {
-      return NextResponse.redirect(new URL("/login?error=not_member", appUrl()));
-    }
+    if (!allowed) return fail("not_member");
 
     const user = await prisma.user.upsert({
       where: { githubId: ghUser.id },
@@ -72,6 +77,6 @@ export async function GET(req: Request) {
   } catch (err) {
     // Don't 500 the browser on a misconfigured App / GitHub API hiccup — log + bounce to login.
     console.error("OAuth callback failed:", briefError(err).message);
-    return NextResponse.redirect(new URL("/login?error=server", appUrl()));
+    return fail("server");
   }
 }
