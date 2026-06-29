@@ -48,7 +48,7 @@ function FindingRow({ finding }: { finding: AuditFinding }) {
       <p>
         <span className="font-medium">Fix:</span> {finding.recommendation}
       </p>
-      {finding.autoFixable && finding.proposedPatch && finding.category !== "missing" ? (
+      {finding.autoFixable && finding.proposedPatch != null && finding.category !== "missing" ? (
         <AuditFixButton
           findingId={finding.id}
           findingState={finding.state}

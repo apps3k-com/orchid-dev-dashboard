@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { getSessionUser } from "@/server/auth/session";
 import { prisma } from "@/server/db";
 import { isOrgMember } from "@/server/github/activation";
-import { proposeFiles } from "@/server/github/writeback";
+import { isNotFound } from "@/server/github/errors";
+import { proposeFiles, repoClient } from "@/server/github/writeback";
 import { enqueueAudit } from "@/server/jobs/enqueue";
 import { isLlmAdmin } from "@/server/llm/admin";
 import { getProviderKeySummaries } from "@/server/llm/keys";
@@ -87,7 +88,8 @@ export async function applyFix(_prev: FixState, formData: FormData): Promise<Fix
     include: { audit: { include: { repo: true } } },
   });
   if (!finding) return { ok: false, message: "Finding not found." };
-  if (!finding.autoFixable || !finding.proposedPatch) {
+  // `== null` (not truthiness): an empty-string proposedPatch is valid full-replacement content.
+  if (!finding.autoFixable || finding.proposedPatch == null) {
     return { ok: false, message: "This finding has no automatic fix." };
   }
   // Auto-fix only modifies EXISTING audited files. A `missing` finding's file does not exist yet, so
@@ -110,6 +112,24 @@ export async function applyFix(_prev: FixState, formData: FormData): Promise<Fix
   } catch (error) {
     console.warn("applyFix membership check failed", briefError(error));
     return { ok: false, message: "Could not verify your organization membership — please try again." };
+  }
+
+  // Re-check the file still exists on the default branch (audit-time state can be stale). We only
+  // edit existing files — never let proposeFiles silently create a new one for a since-deleted path.
+  try {
+    const { octokit, owner, name, base } = await repoClient(repo);
+    await octokit.request("GET /repos/{owner}/{repo}/contents/{path}", {
+      owner,
+      repo: name,
+      path: finding.file,
+      ref: base,
+    });
+  } catch (error) {
+    if (isNotFound(error)) {
+      return { ok: false, message: "That file no longer exists on the default branch — re-run the audit." };
+    }
+    console.warn("applyFix existence check failed", briefError(error));
+    return { ok: false, message: "Could not verify the file — please try again." };
   }
 
   try {
