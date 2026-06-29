@@ -5,8 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getSessionUser } from "@/server/auth/session";
 import { prisma } from "@/server/db";
 import { isOrgMember } from "@/server/github/activation";
-import { isNotFound } from "@/server/github/errors";
-import { proposeFiles, repoClient } from "@/server/github/writeback";
+import { proposeFiles } from "@/server/github/writeback";
 import { enqueueAudit } from "@/server/jobs/enqueue";
 import { isLlmAdmin } from "@/server/llm/admin";
 import { getProviderKeySummaries } from "@/server/llm/keys";
@@ -128,26 +127,9 @@ export async function applyFix(_prev: FixState, formData: FormData): Promise<Fix
       .updateMany({ where: { id: findingId, state: "fixing" }, data: { state: "open" } })
       .catch(() => {});
 
-  // Re-check the file still exists on the default branch (audit-time state can be stale). We only
-  // edit existing files — never let proposeFiles silently create a new one for a since-deleted path.
   try {
-    const { octokit, owner, name, base } = await repoClient(repo);
-    await octokit.request("GET /repos/{owner}/{repo}/contents/{path}", {
-      owner,
-      repo: name,
-      path: finding.file,
-      ref: base,
-    });
-  } catch (error) {
-    await release();
-    if (isNotFound(error)) {
-      return { ok: false, message: "That file no longer exists on the default branch — re-run the audit." };
-    }
-    console.warn("applyFix existence check failed", briefError(error));
-    return { ok: false, message: "Could not verify the file — please try again." };
-  }
-
-  try {
+    // `mustExist` re-checks the file against the writeback snapshot (no create-on-absent), so a
+    // since-deleted path is rejected before any remote write rather than recreated.
     const { prUrl } = await proposeFiles(repo, [{ path: finding.file, content: finding.proposedPatch }], {
       branchPrefix: "orchid/audit-fix",
       commitMessage: `chore(agents): ${finding.title}`,
@@ -155,6 +137,7 @@ export async function applyFix(_prev: FixState, formData: FormData): Promise<Fix
       body:
         `Auto-generated from an Orchid audit finding.\n\n` +
         `**${finding.severity} · ${finding.category}** — ${finding.rationale}\n\n${finding.recommendation}`,
+      mustExist: true,
     });
     // Advance the reserved row to its terminal state. The PR is the real outcome, so a tracking
     // failure is logged (the row stays `fixing`, blocking duplicates) rather than reported as failure.
@@ -164,8 +147,16 @@ export async function applyFix(_prev: FixState, formData: FormData): Promise<Fix
     revalidatePath(`/repos/${repo.id}/audit`);
     return { ok: true, message: "Opened a fix pull request.", prUrl };
   } catch (error) {
-    await release();
+    // Release the reservation ONLY if nothing was written remotely — after a branch/PR may exist, a
+    // retry would open a duplicate, so leave the finding `fixing`.
+    const remoteWriteStarted = Boolean((error as { remoteWriteStarted?: boolean }).remoteWriteStarted);
+    if (!remoteWriteStarted) await release();
     console.warn("applyFix PR failed", briefError(error));
-    return { ok: false, message: "Could not open the fix PR — check branch protection and retry." };
+    return {
+      ok: false,
+      message: remoteWriteStarted
+        ? "The fix PR may be partially created — check the repo for an open orchid/audit-fix branch/PR before retrying."
+        : "Could not open the fix PR — please retry.",
+    };
   }
 }
