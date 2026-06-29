@@ -65,7 +65,7 @@ export async function runAuditMessage(
       system,
       messages: [{ role: "user", content }],
       output_config: {
-        format: { type: "json_schema", name: "audit_result", schema: AUDIT_JSON_SCHEMA },
+        format: { type: "json_schema", schema: AUDIT_JSON_SCHEMA },
       },
     },
     120_000,
