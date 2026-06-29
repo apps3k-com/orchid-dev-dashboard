@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { getSessionUser } from "@/server/auth/session";
 import { prisma } from "@/server/db";
+import { isOrgMember } from "@/server/github/activation";
+import { proposeFiles } from "@/server/github/writeback";
 import { enqueueAudit } from "@/server/jobs/enqueue";
 import { isLlmAdmin } from "@/server/llm/admin";
 import { getProviderKeySummaries } from "@/server/llm/keys";
@@ -64,5 +66,68 @@ export async function requestAudit(
     }
     console.warn("requestAudit failed", briefError(error));
     return { ok: false, message: "Could not queue the audit — please try again." };
+  }
+}
+
+/** Result of {@link applyFix}, surfaced inline next to the finding (with the new PR URL). */
+export type FixState = { ok: boolean; message: string; prUrl?: string };
+
+/** Server action: open a PR applying an auto-fixable finding's proposed file content to the repo.
+ *  Write-back is PR-only; gated to members of the target repo's org (repoId/findingId are client
+ *  input). Marks the finding `pr_opened` with the PR URL on success. */
+export async function applyFix(_prev: FixState, formData: FormData): Promise<FixState> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, message: "Not signed in." };
+
+  const findingId = String(formData.get("findingId") ?? "");
+  if (!findingId) return { ok: false, message: "Missing finding." };
+
+  const finding = await prisma.auditFinding.findUnique({
+    where: { id: findingId },
+    include: { audit: { include: { repo: true } } },
+  });
+  if (!finding) return { ok: false, message: "Finding not found." };
+  if (!finding.autoFixable || !finding.proposedPatch) {
+    return { ok: false, message: "This finding has no automatic fix." };
+  }
+  // Auto-fix only modifies EXISTING audited files. A `missing` finding's file does not exist yet, so
+  // its path is only surface-constrained (not confirmed-present) — don't create new files (e.g. a new
+  // workflow) via auto-PR; the user adds those manually from the recommendation.
+  if (finding.category === "missing") {
+    return { ok: false, message: "Auto-fix edits existing files only — add the missing file manually." };
+  }
+  if (finding.state === "pr_opened" && finding.prUrl) {
+    return { ok: true, message: "A fix PR is already open.", prUrl: finding.prUrl };
+  }
+
+  const repo = finding.audit.repo;
+  const org = await prisma.org.findUnique({ where: { id: repo.orgId } });
+  if (!org) return { ok: false, message: "Organization not found." };
+  try {
+    if (!(await isOrgMember(org, user.login))) {
+      return { ok: false, message: `You are not a member of ${org.login}.` };
+    }
+  } catch (error) {
+    console.warn("applyFix membership check failed", briefError(error));
+    return { ok: false, message: "Could not verify your organization membership — please try again." };
+  }
+
+  try {
+    const { prUrl } = await proposeFiles(repo, [{ path: finding.file, content: finding.proposedPatch }], {
+      branchPrefix: "orchid/audit-fix",
+      commitMessage: `chore(agents): ${finding.title}`,
+      title: `chore(agents): ${finding.title}`,
+      body:
+        `Auto-generated from an Orchid audit finding.\n\n` +
+        `**${finding.severity} · ${finding.category}** — ${finding.rationale}\n\n${finding.recommendation}`,
+    });
+    await prisma.auditFinding
+      .update({ where: { id: findingId }, data: { state: "pr_opened", prUrl } })
+      .catch(() => {}); // PR is open (the outcome); a tracking-update failure must not report failure
+    revalidatePath(`/repos/${repo.id}/audit`);
+    return { ok: true, message: "Opened a fix pull request.", prUrl };
+  } catch (error) {
+    console.warn("applyFix PR failed", briefError(error));
+    return { ok: false, message: "Could not open the fix PR — check branch protection and retry." };
   }
 }

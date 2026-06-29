@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuditFixButton } from "@/components/audit-fix-button";
 import { AuditRunForm } from "@/components/audit-run-form";
 import { requireUser } from "@/server/auth/require";
 import { isLlmAdmin } from "@/server/llm/admin";
@@ -47,6 +48,13 @@ function FindingRow({ finding }: { finding: AuditFinding }) {
       <p>
         <span className="font-medium">Fix:</span> {finding.recommendation}
       </p>
+      {finding.autoFixable && finding.proposedPatch && finding.category !== "missing" ? (
+        <AuditFixButton
+          findingId={finding.id}
+          findingState={finding.state}
+          prUrl={finding.prUrl}
+        />
+      ) : null}
     </div>
   );
 }
