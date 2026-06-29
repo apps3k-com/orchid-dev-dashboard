@@ -17,7 +17,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:dev": "prisma migrate dev",
-    "docstring:coverage": "node scripts/docstring-coverage.mjs"
+    "docstring:coverage": "node scripts/docstring-coverage.mjs",
+    "key:rotate": "node scripts/rotate-encryption-key.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
