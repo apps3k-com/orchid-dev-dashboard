@@ -11,3 +11,12 @@ export async function enqueueSyncAll(): Promise<boolean> {
   await quickAddJob({ connectionString }, "sync:all", undefined, { jobKey: "manual:sync:all" });
   return true;
 }
+
+/** Enqueue an `audit:run` job for a pending RepoAudit row (processed by the in-process worker).
+ *  Returns `true` when enqueued, `false` when there is no DB configured. */
+export async function enqueueAudit(auditId: string): Promise<boolean> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) return false;
+  await quickAddJob({ connectionString }, "audit:run", { auditId });
+  return true;
+}

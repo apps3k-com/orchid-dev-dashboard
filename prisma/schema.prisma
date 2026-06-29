@@ -44,6 +44,7 @@ model Repo {
   pulls         PullRequest[]
   automations   AutomationInstall[]
   hookStates    RepoHookState[]
+  audits        RepoAudit[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -213,4 +214,50 @@ model ProviderKey {
   lastValidatedAt DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+}
+
+/// One LLM-powered audit run of a repo's agent + hook configuration (BYOK auditor). APP/audit.
+model RepoAudit {
+  id               String    @id @default(cuid())
+  repo             Repo      @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  repoId           String
+  provider         String // "anthropic"
+  model            String // e.g. "claude-sonnet-4-6"
+  status           String    @default("pending") // pending | running | completed | failed
+  commitSha        String? // default-branch head the audit ran against (reproducibility)
+  score            Int? // overall config-health score 0..100
+  summary          String? // overall assessment
+  inputTokens      Int?
+  outputTokens     Int?
+  estimatedUsd     Decimal?  @db.Decimal(10, 4)
+  error            String? // briefError() output on failure
+  triggeredByLogin String? // who ran it
+  findings         AuditFinding[]
+  createdAt        DateTime  @default(now())
+  completedAt      DateTime?
+
+  @@index([repoId])
+  @@index([status])
+}
+
+/// A single finding from a RepoAudit. APP/audit.
+model AuditFinding {
+  id             String    @id @default(cuid())
+  audit          RepoAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  auditId        String
+  title          String
+  severity       String // critical | high | medium | low | info
+  category       String // redundancy | misconfiguration | security | optimization | inconsistency | missing | deprecated
+  file           String
+  lineHint       Int?
+  evidence       String?
+  rationale      String
+  recommendation String
+  autoFixable    Boolean   @default(false)
+  proposedPatch  String? // full replacement file content for a fix PR (v1c)
+  state          String    @default("open") // open | dismissed | pr_opened | resolved
+  prUrl          String?
+  createdAt      DateTime  @default(now())
+
+  @@index([auditId])
 }

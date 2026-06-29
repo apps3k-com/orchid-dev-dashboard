@@ -57,12 +57,20 @@ const columns: ColumnDef<RepoRow>[] = [
     header: () => <span className="sr-only">Actions</span>,
     enableSorting: false,
     cell: ({ row }) => (
-      <Link
-        href={`/repos/${row.original.id}/modules`}
-        className="text-sm font-medium hover:underline"
-      >
-        Modules
-      </Link>
+      <div className="flex items-center gap-3">
+        <Link
+          href={`/repos/${row.original.id}/modules`}
+          className="text-sm font-medium hover:underline"
+        >
+          Modules
+        </Link>
+        <Link
+          href={`/repos/${row.original.id}/audit`}
+          className="text-sm font-medium hover:underline"
+        >
+          Audit
+        </Link>
+      </div>
     ),
   },
 ];
