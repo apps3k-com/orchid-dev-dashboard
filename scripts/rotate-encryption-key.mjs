@@ -15,8 +15,10 @@ import { PrismaClient } from "@prisma/client";
 const deriveKey = (secret) => createHash("sha256").update(secret).digest();
 
 const decryptWith = (blob, secret) => {
-  const [iv, tag, enc] = blob.split(":").map((part) => Buffer.from(part, "base64"));
-  if (!iv || !tag || !enc) throw new Error("Malformed encrypted blob");
+  const parts = blob.split(":");
+  if (parts.length !== 3) throw new Error("Malformed encrypted blob");
+  const [iv, tag, enc] = parts.map((part) => Buffer.from(part, "base64"));
+  if (!iv.length || !tag.length || !enc.length) throw new Error("Malformed encrypted blob");
   const decipher = createDecipheriv("aes-256-gcm", deriveKey(secret), iv);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");
@@ -58,7 +60,8 @@ try {
         data: {
           privateKeyEnc: rotate(cfg.privateKeyEnc, OLD, NEW),
           clientSecretEnc: rotate(cfg.clientSecretEnc, OLD, NEW),
-          webhookSecretEnc: cfg.webhookSecretEnc ? rotate(cfg.webhookSecretEnc, OLD, NEW) : null,
+          webhookSecretEnc:
+            cfg.webhookSecretEnc != null ? rotate(cfg.webhookSecretEnc, OLD, NEW) : null,
         },
       });
     }

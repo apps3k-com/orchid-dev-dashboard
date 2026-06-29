@@ -26,8 +26,10 @@ export function encryptSecretWith(plaintext: string, secret: string): string {
 /** Decrypt an {@link encryptSecretWith} blob under an explicit secret. Throws on a wrong key or a
  *  tampered ciphertext (GCM auth-tag mismatch) or a malformed blob. */
 export function decryptSecretWith(blob: string, secret: string): string {
-  const [iv, tag, enc] = blob.split(":").map((part) => Buffer.from(part, "base64"));
-  if (!iv || !tag || !enc) throw new Error("Malformed encrypted blob");
+  const parts = blob.split(":");
+  if (parts.length !== 3) throw new Error("Malformed encrypted blob");
+  const [iv, tag, enc] = parts.map((part) => Buffer.from(part, "base64"));
+  if (!iv.length || !tag.length || !enc.length) throw new Error("Malformed encrypted blob");
   const decipher = createDecipheriv("aes-256-gcm", deriveKey(secret), iv);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");

@@ -31,6 +31,14 @@ describe("crypto", () => {
     const tampered = `${iv}:${tag}:${Buffer.from("evil").toString("base64")}`;
     expect(() => decryptSecret(tampered)).toThrow();
   });
+
+  it("rejects blobs without exactly three non-empty segments", () => {
+    const blob = encryptSecret("secret");
+    expect(() => decryptSecret(`${blob}:extra`)).toThrow("Malformed encrypted blob");
+    expect(() => decryptSecret("only:two")).toThrow("Malformed encrypted blob");
+    const [iv, tag] = blob.split(":");
+    expect(() => decryptSecret(`${iv}:${tag}:`)).toThrow("Malformed encrypted blob");
+  });
 });
 
 describe("crypto key rotation", () => {
