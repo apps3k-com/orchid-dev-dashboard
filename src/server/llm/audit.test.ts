@@ -40,12 +40,20 @@ describe("validateFindings", () => {
     expect(kept).toHaveLength(0);
   });
 
-  it("keeps a 'missing' finding even though its file is (by definition) not audited", () => {
+  it("keeps a 'missing' finding for an absent file within the audit surface", () => {
     const kept = validateFindings(
       [finding({ category: "missing", file: ".github/workflows/ci.yml" })],
       audited,
     );
     expect(kept).toHaveLength(1);
+  });
+
+  it("drops a 'missing' finding whose path is outside the audit surface", () => {
+    const kept = validateFindings(
+      [finding({ category: "missing", file: "src/whatever.ts" })],
+      audited,
+    );
+    expect(kept).toHaveLength(0);
   });
 
   it("drops findings with an unknown severity or category", () => {

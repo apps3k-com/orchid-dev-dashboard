@@ -2,16 +2,7 @@ import type { Repo } from "@prisma/client";
 
 import { isNotFound } from "@/server/github/errors";
 import { repoClient } from "@/server/github/writeback";
-
-// The agent/hook configuration surface an audit reads, in priority order (root files first).
-const ROOT_FILES = new Set([
-  "AGENTS.md",
-  "CLAUDE.md",
-  "CODEX.md",
-  ".coderabbit.yaml",
-  ".coderabbit.yml",
-]);
-const PREFIXES = [".claude/", ".codex/", ".github/workflows/", "docs/agents/"];
+import { auditPathPriority, isAuditPath } from "@/server/llm/audit-scope";
 
 // Char-based bounds (a rough token proxy) so a big repo can't blow the context window / cost.
 const PER_FILE_CHARS = 24_000;
@@ -28,16 +19,6 @@ export type AuditContext = {
   omitted: string[];
   truncated: boolean;
 };
-
-function priority(path: string): number {
-  if (ROOT_FILES.has(path)) return 0;
-  const index = PREFIXES.findIndex((prefix) => path.startsWith(prefix));
-  return index === -1 ? 99 : index + 1;
-}
-
-function isAudited(path: string): boolean {
-  return ROOT_FILES.has(path) || PREFIXES.some((prefix) => path.startsWith(prefix));
-}
 
 /** Collect a repo's agent/hook config files (`.claude/**`, `.codex/**`, `.github/workflows/*`,
  *  `AGENTS.md`/`CLAUDE.md`/`CODEX.md`, `.coderabbit.yaml`, `docs/agents/*`) at the default-branch
@@ -65,9 +46,11 @@ export async function collectAuditContext(repo: Repo): Promise<AuditContext> {
   }
 
   const blobs = tree.data.tree
-    .filter((e) => e.type === "blob" && e.path && e.sha && isAudited(e.path))
+    .filter((e) => e.type === "blob" && e.path && e.sha && isAuditPath(e.path))
     .map((e) => ({ path: e.path as string, sha: e.sha as string }))
-    .sort((a, b) => priority(a.path) - priority(b.path) || a.path.localeCompare(b.path));
+    .sort(
+      (a, b) => auditPathPriority(a.path) - auditPathPriority(b.path) || a.path.localeCompare(b.path),
+    );
 
   const files: AuditFile[] = [];
   const omitted: string[] = [];

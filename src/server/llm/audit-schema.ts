@@ -1,6 +1,8 @@
 // The structured-output contract for an audit run: the JSON schema sent to the provider plus the
 // matching TS types and an anti-hallucination validator. Kept provider-agnostic.
 
+import { isAuditPath } from "@/server/llm/audit-scope";
+
 export const SEVERITIES = ["critical", "high", "medium", "low", "info"] as const;
 export const CATEGORIES = [
   "redundancy",
@@ -89,16 +91,17 @@ const SEVERITY_SET = new Set<string>(SEVERITIES);
 const CATEGORY_SET = new Set<string>(CATEGORIES);
 
 /** Drop hallucinated/invalid findings and keep known severity + category. A finding about an
- *  EXISTING file must cite a file that was actually audited (anti-hallucination); `missing`-category
- *  findings are exempt from that check because they recommend a file that is, by definition, absent
- *  from the audited set. */
+ *  EXISTING file must cite a file that was actually audited (anti-hallucination). A `missing`-category
+ *  finding recommends an absent file, so it can't be in the audited set — but it must still name a
+ *  path WITHIN the audit surface (`isAuditPath`), so the model can't invent arbitrary out-of-scope
+ *  "missing" paths. */
 export function validateFindings(
   findings: AuditFindingResult[],
   auditedFiles: Set<string>,
 ): AuditFindingResult[] {
   return findings.filter(
     (f) =>
-      (f.category === "missing" || auditedFiles.has(f.file)) &&
+      ((f.category === "missing" && isAuditPath(f.file)) || auditedFiles.has(f.file)) &&
       SEVERITY_SET.has(f.severity) &&
       CATEGORY_SET.has(f.category),
   );
