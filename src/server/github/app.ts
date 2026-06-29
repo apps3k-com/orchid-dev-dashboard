@@ -16,9 +16,13 @@ export interface Installation {
  * background sync fail.
  */
 function normalizePrivateKey(key: string): string {
-  if (key.includes("\n")) return key; // already a multi-line PEM
-  if (key.includes("\\n")) return key.replace(/\\n/g, "\n"); // \n-escaped single line
-  const m = key.match(/^(-----BEGIN [A-Z ]+-----)\s+([\s\S]*?)\s+(-----END [A-Z ]+-----)\s*$/);
+  // Unescape literal newlines FIRST, so a `\n`-escaped key with an incidental trailing real newline
+  // (some secret managers append one) doesn't short-circuit the multiline check and reach
+  // createPrivateKey with literal `\n` sequences still embedded.
+  const unescaped = key.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
+  if (unescaped.includes("\n")) return unescaped; // already, or now, a multi-line PEM
+  // No newlines at all: some single-line stores collapse them to spaces — rebuild from header/footer.
+  const m = unescaped.match(/^(-----BEGIN [A-Z ]+-----)\s+([\s\S]*?)\s+(-----END [A-Z ]+-----)\s*$/);
   return m ? `${m[1]}\n${m[2].replace(/\s+/g, "\n")}\n${m[3]}\n` : key;
 }
 
