@@ -37,7 +37,14 @@ export type AuditResult = {
   findings: AuditFindingResult[];
 };
 
-/** JSON Schema handed to the provider's structured-output mode so the response is schema-valid. */
+/** JSON Schema handed to the provider's structured-output mode so the response is schema-valid.
+ *
+ *  IMPORTANT: Anthropic structured outputs REJECT numeric/length/array constraints (`minimum`,
+ *  `maximum`, `maxLength`, `maxItems`, …) with a 400 — and we call the Messages API over raw `fetch`
+ *  (no SDK to strip them client-side), so those bounds must NOT appear as schema keywords here. They
+ *  live in `description` text as soft model guidance instead; hard limits are enforced in code
+ *  (e.g. {@link clampScore} for the 0–100 score). Do not re-add `maxLength`/`minimum`/`maximum`/
+ *  `maxItems` — that silently breaks every audit run. */
 export const AUDIT_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -48,13 +55,19 @@ export const AUDIT_JSON_SCHEMA = {
       additionalProperties: false,
       required: ["overallAssessment", "score"],
       properties: {
-        overallAssessment: { type: "string", maxLength: 1200 },
-        score: { type: "integer", minimum: 0, maximum: 100 },
+        overallAssessment: {
+          type: "string",
+          description: "Concise overall assessment of the repo's agent/hook config health (aim for under ~1200 characters).",
+        },
+        score: {
+          type: "integer",
+          description: "Overall config health, 0 (worst) to 100 (best).",
+        },
       },
     },
     findings: {
       type: "array",
-      maxItems: 50,
+      description: "High-signal findings; prefer quality over quantity (at most ~50).",
       items: {
         type: "object",
         additionalProperties: false,
@@ -71,16 +84,31 @@ export const AUDIT_JSON_SCHEMA = {
           "proposedPatch",
         ],
         properties: {
-          title: { type: "string", maxLength: 160 },
+          title: { type: "string", description: "Short finding title (aim for under ~160 characters)." },
           severity: { type: "string", enum: [...SEVERITIES] },
           category: { type: "string", enum: [...CATEGORIES] },
-          file: { type: "string" },
-          lineHint: { type: ["integer", "null"] },
-          evidence: { type: ["string", "null"], maxLength: 600 },
-          rationale: { type: "string", maxLength: 800 },
-          recommendation: { type: "string", maxLength: 800 },
-          autoFixable: { type: "boolean" },
-          proposedPatch: { type: ["string", "null"] },
+          file: { type: "string", description: "Path of the cited file, within the audit surface." },
+          lineHint: { type: ["integer", "null"], description: "1-based line in the cited file, or null." },
+          evidence: {
+            type: ["string", "null"],
+            description: "Verbatim snippet copied from the cited file (aim for under ~600 characters), or null.",
+          },
+          rationale: {
+            type: "string",
+            description: "Why this is a problem (aim for under ~800 characters).",
+          },
+          recommendation: {
+            type: "string",
+            description: "How to fix it (aim for under ~800 characters).",
+          },
+          autoFixable: {
+            type: "boolean",
+            description: "True only when proposedPatch holds the complete replacement content for this single file.",
+          },
+          proposedPatch: {
+            type: ["string", "null"],
+            description: "Complete replacement content of the cited file when autoFixable, otherwise null.",
+          },
         },
       },
     },
