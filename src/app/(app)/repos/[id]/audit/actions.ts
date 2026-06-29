@@ -114,6 +114,20 @@ export async function applyFix(_prev: FixState, formData: FormData): Promise<Fix
     return { ok: false, message: "Could not verify your organization membership — please try again." };
   }
 
+  // Atomically reserve the finding (open → fixing) so two concurrent requests can't both open a PR;
+  // release it back to `open` on any failure before the PR is created.
+  const reserved = await prisma.auditFinding.updateMany({
+    where: { id: findingId, state: "open" },
+    data: { state: "fixing" },
+  });
+  if (reserved.count === 0) {
+    return { ok: false, message: "A fix for this finding is already in progress or open." };
+  }
+  const release = () =>
+    prisma.auditFinding
+      .updateMany({ where: { id: findingId, state: "fixing" }, data: { state: "open" } })
+      .catch(() => {});
+
   // Re-check the file still exists on the default branch (audit-time state can be stale). We only
   // edit existing files — never let proposeFiles silently create a new one for a since-deleted path.
   try {
@@ -125,6 +139,7 @@ export async function applyFix(_prev: FixState, formData: FormData): Promise<Fix
       ref: base,
     });
   } catch (error) {
+    await release();
     if (isNotFound(error)) {
       return { ok: false, message: "That file no longer exists on the default branch — re-run the audit." };
     }
@@ -141,12 +156,15 @@ export async function applyFix(_prev: FixState, formData: FormData): Promise<Fix
         `Auto-generated from an Orchid audit finding.\n\n` +
         `**${finding.severity} · ${finding.category}** — ${finding.rationale}\n\n${finding.recommendation}`,
     });
+    // Advance the reserved row to its terminal state. The PR is the real outcome, so a tracking
+    // failure is logged (the row stays `fixing`, blocking duplicates) rather than reported as failure.
     await prisma.auditFinding
-      .update({ where: { id: findingId }, data: { state: "pr_opened", prUrl } })
-      .catch(() => {}); // PR is open (the outcome); a tracking-update failure must not report failure
+      .updateMany({ where: { id: findingId, state: "fixing" }, data: { state: "pr_opened", prUrl } })
+      .catch((error) => console.warn("applyFix tracking failed", briefError(error)));
     revalidatePath(`/repos/${repo.id}/audit`);
     return { ok: true, message: "Opened a fix pull request.", prUrl };
   } catch (error) {
+    await release();
     console.warn("applyFix PR failed", briefError(error));
     return { ok: false, message: "Could not open the fix PR — check branch protection and retry." };
   }
