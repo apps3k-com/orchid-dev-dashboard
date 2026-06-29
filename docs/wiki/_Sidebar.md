@@ -3,6 +3,7 @@
 **📘 User Documentation**
 - [User Guide (EN)](User-Guide-EN)
 - [Benutzerhandbuch (DE)](Benutzerhandbuch-DE)
+- [GitHub-App einrichten (DE)](GitHub-App-Setup)
 
 **🔧 Technical (EN)**
 - [Architecture](Architecture)
