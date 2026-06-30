@@ -18,7 +18,8 @@ describe("buildAppManifest", () => {
     expect(m.default_permissions.pull_requests).toBe("write");
     expect(m.default_permissions.members).toBe("read");
     expect(m.default_permissions.organization_projects).toBe("write");
-    expect(m.default_permissions.variables).toBe("write");
+    expect(m.default_permissions.actions_variables).toBe("write");
+    expect(m.default_permissions.organization_actions_variables).toBe("write");
     expect(m.default_permissions.organization_secrets).toBe("write");
   });
 });

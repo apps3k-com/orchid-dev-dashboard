@@ -3,8 +3,9 @@
  * App in one click. See https://docs.github.com/apps/sharing-github-apps/registering-a-github-app-from-a-manifest.
  *
  * Permissions cover what Orchid needs to read repos/PRs/Projects and to write modules
- * (Contents → PR) and automations. The org-level Actions Variables permission (for the
- * PRODUCTS variable) is added with the Products editor increment.
+ * (Contents → PR) and automations. Both repo- and org-level Actions Variables are included
+ * (`actions_variables` / `organization_actions_variables`) — the org one is required to write the
+ * org-wide PRODUCTS variable. Keys verified against a live App's granted permissions object.
  *
  * @param appUrl - The public base URL of this instance (e.g. https://orchid.example.com).
  * @param name - The App name to pre-fill (must be globally unique on GitHub).
@@ -24,7 +25,8 @@ export function buildAppManifest(appUrl: string, name: string) {
       members: "read",
       metadata: "read",
       organization_projects: "write",
-      variables: "write",
+      actions_variables: "write",
+      organization_actions_variables: "write",
       organization_secrets: "write",
     },
     default_events: ["issues", "pull_request"],
