@@ -44,7 +44,7 @@ export async function saveProviderKey(
   provider: ProviderId,
   apiKey: string,
   model: string,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; warning?: string }> {
   const trimmed = apiKey.trim();
   // Length floor so `maskedHint` (last 4) can never reveal a whole (bogus) key, independent of the
   // provider test call. Real keys are far longer than this.
@@ -54,13 +54,15 @@ export async function saveProviderKey(
   }
 
   const result = await validateProviderKey(provider, trimmed, model);
-  if (!result.ok) return { ok: false, error: result.error ?? "Validation failed." };
+  // A rate-limited / out-of-credits key still AUTHENTICATED, so it is valid — store it with a
+  // "rate_limited" status instead of discarding it. Only a genuinely bad/unreachable key is rejected.
+  if (!result.ok && !result.rateLimited) return { ok: false, error: result.error ?? "Validation failed." };
 
   const fields = {
     keyEnc: encryptSecret(trimmed),
     maskedHint: `…${trimmed.slice(-4)}`,
     defaultModel: model,
-    status: "valid",
+    status: result.ok ? "valid" : "rate_limited",
     lastValidatedAt: new Date(),
   };
   await prisma.providerKey.upsert({
@@ -68,7 +70,7 @@ export async function saveProviderKey(
     create: { provider, ...fields },
     update: fields,
   });
-  return { ok: true };
+  return { ok: true, warning: result.ok ? undefined : result.error };
 }
 
 /** Decrypt the stored key for a provider (server-only; used by the audit worker). Null if unset. */

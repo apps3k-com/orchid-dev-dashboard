@@ -5,6 +5,8 @@ import { createSession } from "@/server/auth/session";
 import { prisma } from "@/server/db";
 import { appUrl } from "@/server/env";
 import { getApp, listAppInstallations } from "@/server/github/app";
+import { isNotFound } from "@/server/github/errors";
+import { briefError } from "@/server/log";
 
 /**
  * GitHub OAuth callback. Exchanges the code for a user token, requires the user to be an
@@ -17,54 +19,64 @@ export async function GET(req: Request) {
   const state = params.get("state");
   const jar = await cookies();
   const expected = jar.get("orchid_oauth_state")?.value;
-  if (!code || !state || !expected || state !== expected) {
-    return NextResponse.redirect(new URL("/login?error=state", appUrl()));
-  }
+  // Every terminal redirect clears the one-time CSRF state cookie — success and failure alike.
+  const fail = (reason: string) => {
+    const res = NextResponse.redirect(new URL(`/login?error=${reason}`, appUrl()));
+    res.cookies.delete("orchid_oauth_state");
+    return res;
+  };
+  if (!code || !state || !expected || state !== expected) return fail("state");
 
-  const app = await getApp();
-  const { authentication } = await app.oauth.createToken({ state, code });
-  const octokit = new Octokit({ auth: authentication.token });
-  const { data: ghUser } = await octokit.request("GET /user");
+  try {
+    const app = await getApp();
+    const { authentication } = await app.oauth.createToken({ state, code });
+    const octokit = new Octokit({ auth: authentication.token });
+    const { data: ghUser } = await octokit.request("GET /user");
 
-  // Gate: the user must be an active member of a managed org (one the App is installed on).
-  const installations = await listAppInstallations();
-  let allowed = false;
-  for (const inst of installations) {
-    try {
-      const membership = await octokit.request("GET /user/memberships/orgs/{org}", {
-        org: inst.login,
-      });
-      if (membership.data.state === "active") {
-        allowed = true;
-        break;
+    // Gate: the user must be an active member of a managed org (one the App is installed on).
+    const installations = await listAppInstallations();
+    let allowed = false;
+    for (const inst of installations) {
+      try {
+        const membership = await octokit.request("GET /user/memberships/orgs/{org}", {
+          org: inst.login,
+        });
+        if (membership.data.state === "active") {
+          allowed = true;
+          break;
+        }
+      } catch (error) {
+        // 404 = not a member of this org → keep checking. Any other failure (outage, bad token,
+        // rate limit) must NOT be misread as "not a member" — rethrow to the outer server handler.
+        if (!isNotFound(error)) throw error;
       }
-    } catch {
-      // not a member of this org — keep checking
     }
-  }
-  if (!allowed) {
-    return NextResponse.redirect(new URL("/login?error=not_member", appUrl()));
-  }
+    if (!allowed) return fail("not_member");
 
-  const user = await prisma.user.upsert({
-    where: { githubId: ghUser.id },
-    create: {
-      githubId: ghUser.id,
-      login: ghUser.login,
-      name: ghUser.name ?? null,
-      avatarUrl: ghUser.avatar_url,
-      email: ghUser.email ?? null,
-    },
-    update: {
-      login: ghUser.login,
-      name: ghUser.name ?? null,
-      avatarUrl: ghUser.avatar_url,
-      email: ghUser.email ?? null,
-    },
-  });
-  await createSession(user.id);
+    const user = await prisma.user.upsert({
+      where: { githubId: ghUser.id },
+      create: {
+        githubId: ghUser.id,
+        login: ghUser.login,
+        name: ghUser.name ?? null,
+        avatarUrl: ghUser.avatar_url,
+        email: ghUser.email ?? null,
+      },
+      update: {
+        login: ghUser.login,
+        name: ghUser.name ?? null,
+        avatarUrl: ghUser.avatar_url,
+        email: ghUser.email ?? null,
+      },
+    });
+    await createSession(user.id);
 
-  const res = NextResponse.redirect(new URL("/dashboard", appUrl()));
-  res.cookies.delete("orchid_oauth_state");
-  return res;
+    const res = NextResponse.redirect(new URL("/dashboard", appUrl()));
+    res.cookies.delete("orchid_oauth_state");
+    return res;
+  } catch (err) {
+    // Don't 500 the browser on a misconfigured App / GitHub API hiccup — log + bounce to login.
+    console.error("OAuth callback failed:", briefError(err).message);
+    return fail("server");
+  }
 }

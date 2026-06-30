@@ -9,6 +9,24 @@ export interface Installation {
 }
 
 /**
+ * Reconstruct a usable PEM from a GitHub App private key stored in env / secret managers.
+ * Handles three encodings — real newlines (as-is), `\n`-escaped single line, and newlines
+ * collapsed to spaces (some single-line secret stores, e.g. 1Password environments, do this).
+ * Without this, `createPrivateKey` throws `ERR_OSSL_UNSUPPORTED` and both login and the
+ * background sync fail.
+ */
+function normalizePrivateKey(key: string): string {
+  // Unescape literal newlines FIRST, so a `\n`-escaped key with an incidental trailing real newline
+  // (some secret managers append one) doesn't short-circuit the multiline check and reach
+  // createPrivateKey with literal `\n` sequences still embedded.
+  const unescaped = key.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
+  if (unescaped.includes("\n")) return unescaped; // already, or now, a multi-line PEM
+  // No newlines at all: some single-line stores collapse them to spaces — rebuild from header/footer.
+  const m = unescaped.match(/^(-----BEGIN [A-Z ]+-----)\s+([\s\S]*?)\s+(-----END [A-Z ]+-----)\s*$/);
+  return m ? `${m[1]}\n${m[2].replace(/\s+/g, "\n")}\n${m[3]}\n` : key;
+}
+
+/**
  * Build an Octokit App from the stored credentials. Throws if the instance has not
  * completed /setup. A webhook secret is required by the constructor type, so an inert
  * placeholder is used until webhooks are configured (v2).
@@ -18,7 +36,7 @@ export async function getApp(): Promise<App> {
   if (!cfg) throw new Error("GitHub App is not configured yet — complete /setup first.");
   return new App({
     appId: cfg.appId,
-    privateKey: cfg.privateKey,
+    privateKey: normalizePrivateKey(cfg.privateKey),
     oauth: { clientId: cfg.clientId, clientSecret: cfg.clientSecret },
     webhooks: { secret: cfg.webhookSecret ?? "orchid-webhooks-unconfigured" },
     // Use the @octokit/rest Octokit so app.octokit + installation clients expose
