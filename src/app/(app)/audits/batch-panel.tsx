@@ -87,6 +87,8 @@ export function BatchPanel({ batchId, onDone }: { batchId: string; onDone: () =>
   const handleConfirm = () => {
     startTransition(async () => {
       await confirmBatch(batchId);
+      const next = await getBatchState(batchId);
+      setView(next);
     });
   };
 
