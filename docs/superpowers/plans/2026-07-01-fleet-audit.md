@@ -676,7 +676,9 @@ export async function getBatchState(batchId: string): Promise<BatchView | null> 
   if (!batch) return null;
   const statuses = batch.items.map((i) => i.audit?.status).filter((s): s is string => Boolean(s));
   let status = batch.status;
-  if (status === "running" && statuses.length > 0 && isBatchComplete(statuses)) {
+  // A running batch with no active (pending|running) linked audits is complete —
+  // covers all runs terminal AND the edge where no audit was created (all errored / zero will_audit).
+  if (status === "running" && isBatchComplete(statuses)) {
     await prisma.auditBatch
       .update({ where: { id: batchId }, data: { status: "completed", completedAt: new Date() } })
       .catch(() => {});
