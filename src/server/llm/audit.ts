@@ -34,7 +34,7 @@ export function estimateUsd(model: string, inputTokens: number, outputTokens: nu
 }
 
 /** Per-run cost ceiling (USD) from `ORCHID_AUDIT_MAX_USD`, default $0.50. */
-function auditMaxUsd(): number {
+export function auditMaxUsd(): number {
   const raw = Number(process.env.ORCHID_AUDIT_MAX_USD);
   return Number.isFinite(raw) && raw > 0 ? raw : 0.5;
 }

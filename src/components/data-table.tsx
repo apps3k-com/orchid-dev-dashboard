@@ -102,6 +102,8 @@ export type DataTableProps<TData, TValue> = {
   getRowId?: (row: TData) => string;
   /** Called with selected row ids whenever selection changes (enables selection when provided). */
   onSelectedIdsChange?: (ids: string[]) => void;
+  /** Row ids to pre-select on mount (e.g. all active repos by default). Ignored on later re-renders. */
+  initialSelectedIds?: string[];
 };
 
 /** Generic sortable, filterable and paginated data table, composed from the shadcnstudio
@@ -114,13 +116,16 @@ export function DataTable<TData, TValue>({
   pageSize = 10,
   getRowId,
   onSelectedIdsChange,
+  initialSelectedIds,
 }: DataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize,
   });
-  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries((initialSelectedIds ?? []).map((id) => [id, true])),
+  );
 
   // React Compiler cannot memoize TanStack Table's returned functions; opting this
   // client data table out of compiler memoization is expected and safe.

@@ -1,6 +1,12 @@
 import { prisma } from "@/server/db";
 import { countInputTokens } from "@/server/llm/anthropic";
-import { AUDIT_MAX_OUTPUT_TOKENS, SYSTEM_PROMPT, buildContent, estimateUsd } from "@/server/llm/audit";
+import {
+  AUDIT_MAX_OUTPUT_TOKENS,
+  SYSTEM_PROMPT,
+  auditMaxUsd,
+  buildContent,
+  estimateUsd,
+} from "@/server/llm/audit";
 import { aggregateEstimate, decideStaleness, type ItemDecision } from "@/server/llm/audit-batch";
 import { collectAuditContext, getDefaultBranchHeadSha } from "@/server/llm/context";
 import { getDecryptedProviderKey } from "@/server/llm/keys";
@@ -62,13 +68,28 @@ export async function runBatchEstimate(batchId: string): Promise<void> {
         });
         const content = buildContent(item.repo, files, hookStates, omitted);
         const inputTokens = await countInputTokens(apiKey, model, SYSTEM_PROMPT, content);
+        const estimatedUsd = estimateUsd(model, inputTokens, AUDIT_MAX_OUTPUT_TOKENS);
+        const cap = auditMaxUsd();
+        if (estimatedUsd > cap) {
+          await prisma.auditBatchItem.update({
+            where: { id: item.id },
+            data: {
+              decision: "error",
+              commitSha: currentSha,
+              estimatedInputTokens: inputTokens,
+              estimatedUsd,
+              error: `Estimated $${estimatedUsd.toFixed(2)} exceeds the per-run cap $${cap.toFixed(2)} — raise ORCHID_AUDIT_MAX_USD or use a cheaper model.`,
+            },
+          });
+          continue;
+        }
         await prisma.auditBatchItem.update({
           where: { id: item.id },
           data: {
             decision: "will_audit",
             commitSha: currentSha,
             estimatedInputTokens: inputTokens,
-            estimatedUsd: estimateUsd(model, inputTokens, AUDIT_MAX_OUTPUT_TOKENS),
+            estimatedUsd,
           },
         });
       } catch (error) {

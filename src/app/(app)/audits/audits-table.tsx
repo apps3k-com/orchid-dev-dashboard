@@ -32,8 +32,8 @@ const columns: ColumnDef<AuditRow>[] = [
     id: "select",
     header: ({ table }) => (
       <Checkbox
-        checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
-        onCheckedChange={(v) => table.toggleAllPageRowsSelected(!!v)}
+        checked={table.getIsAllRowsSelected() || (table.getIsSomeRowsSelected() && "indeterminate")}
+        onCheckedChange={(v) => table.toggleAllRowsSelected(!!v)}
         aria-label="Select all"
       />
     ),
@@ -100,7 +100,7 @@ const columns: ColumnDef<AuditRow>[] = [
  *  estimate for the selected repos, with a {@link BatchPanel} taking over once a batch starts. */
 export function AuditsTable({ rows }: { rows: AuditRow[] }) {
   const getRowId = useCallback((r: AuditRow) => r.id, []);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string[]>(() => rows.map((r) => r.id));
   const [force, setForce] = useState(false);
   const [consent, setConsent] = useState(false);
   const [batchId, setBatchId] = useState<string | null>(null);
@@ -138,6 +138,7 @@ export function AuditsTable({ rows }: { rows: AuditRow[] }) {
         pageSize={20}
         getRowId={getRowId}
         onSelectedIdsChange={setSelected}
+        initialSelectedIds={rows.map((r) => r.id)}
       />
 
       {batchId && <BatchPanel batchId={batchId} onDone={() => setBatchId(null)} />}
