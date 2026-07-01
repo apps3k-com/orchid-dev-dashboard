@@ -47,6 +47,7 @@ Two new tables; `RepoAudit`/`AuditFinding` unchanged. Add back-relations on `Rep
 model AuditBatch {
   id                        String    @id @default(cuid())
   status                    String    @default("estimating") // estimating | estimated | running | completed | cancelled | failed
+  force                     Boolean   @default(false) // re-audit even if the commit is unchanged
   triggeredByLogin          String?
   totalEstimatedUsd         Decimal?  @db.Decimal(10, 4)
   totalEstimatedInputTokens Int?
