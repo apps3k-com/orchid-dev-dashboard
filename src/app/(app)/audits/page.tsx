@@ -12,7 +12,9 @@ export const dynamic = "force-dynamic";
 const SEVERITY_ORDER = ["critical", "high", "medium", "low", "info"];
 
 /** Fleet-wide audit overview: the latest audit per repo (score, status, findings, last run, cost),
- *  incl. never-audited repos, with summary KPIs. Batch selection/estimate is layered on in Task 7. */
+ *  incl. never-audited repos, with summary KPIs. Findings here are filtered to `state: "open"` so
+ *  the "Open findings" KPI, `worstSeverity`, and each row's `findingCount` agree; batch selection
+ *  (row checkboxes + consent) and estimate/confirm/run are handled by {@link AuditsTable}. */
 export default async function AuditsPage() {
   const repos = await prisma.repo.findMany({
     where: { isArchived: false },
@@ -21,7 +23,7 @@ export default async function AuditsPage() {
       audits: {
         orderBy: { createdAt: "desc" },
         take: 1,
-        include: { findings: { select: { severity: true } } },
+        include: { findings: { where: { state: "open" }, select: { severity: true } } },
       },
     },
   });

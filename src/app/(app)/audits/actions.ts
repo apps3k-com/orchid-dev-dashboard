@@ -28,10 +28,21 @@ async function auditGate(): Promise<Gate> {
 /** Result of {@link startBatchEstimate}. */
 export type BatchStartState = { ok: boolean; message: string; batchId?: string };
 
-/** Create an AuditBatch for the selected repos and enqueue the estimate job. One active batch at a time. */
-export async function startBatchEstimate(repoIds: string[], force: boolean): Promise<BatchStartState> {
+/** Create an AuditBatch for the selected repos and enqueue the estimate job. One active batch at a time.
+ *  Requires explicit `consent`: the estimate phase sends each selected repo's config to Anthropic
+ *  (token counting), so consent must be obtained before that egress — mirrors {@link requestAudit}'s
+ *  single-repo consent requirement. `confirmBatch`/`cancelBatch` don't re-check consent: it's enforced
+ *  once, here, at the point config first leaves the system. */
+export async function startBatchEstimate(
+  repoIds: string[],
+  force: boolean,
+  consent: boolean,
+): Promise<BatchStartState> {
   const gate = await auditGate();
   if (!gate.ok) return { ok: false, message: gate.message };
+  if (consent !== true) {
+    return { ok: false, message: "Please confirm sending the selected repos' config to the provider." };
+  }
   const ids = Array.from(new Set(repoIds)).filter(Boolean);
   if (ids.length === 0) return { ok: false, message: "Select at least one repository." };
   const active = await prisma.auditBatch.findFirst({

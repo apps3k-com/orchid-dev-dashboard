@@ -102,12 +102,13 @@ export function AuditsTable({ rows }: { rows: AuditRow[] }) {
   const getRowId = useCallback((r: AuditRow) => r.id, []);
   const [selected, setSelected] = useState<string[]>([]);
   const [force, setForce] = useState(false);
+  const [consent, setConsent] = useState(false);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function onAudit() {
     startTransition(async () => {
-      const res = await startBatchEstimate(selected, force);
+      const res = await startBatchEstimate(selected, force, consent);
       if (res.ok && res.batchId) setBatchId(res.batchId);
     });
   }
@@ -115,12 +116,18 @@ export function AuditsTable({ rows }: { rows: AuditRow[] }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-4">
-        <Button onClick={onAudit} disabled={selected.length === 0 || pending}>
+        <Button onClick={onAudit} disabled={selected.length === 0 || !consent || pending}>
           Audit selected ({selected.length})
         </Button>
         <div className="flex items-center gap-2">
           <Checkbox id="force-reaudit" checked={force} onCheckedChange={(v) => setForce(!!v)} />
           <Label htmlFor="force-reaudit">Re-audit unchanged</Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox id="batch-consent" checked={consent} onCheckedChange={(v) => setConsent(!!v)} />
+          <Label htmlFor="batch-consent">
+            I confirm sending the selected repos&apos; config to the provider
+          </Label>
         </div>
       </div>
 
