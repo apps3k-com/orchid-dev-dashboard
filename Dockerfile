@@ -22,8 +22,10 @@ RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 COPY --from=build /app/public ./public
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
-# Prisma client engine for runtime queries (the traced standalone may omit the binary).
-COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+# The Prisma client + query engine already ship inside .next/standalone above — `output: "standalone"`
+# traces @prisma/client (incl. the libquery_engine .node) into the bundle's node_modules/.pnpm/… tree.
+# Do NOT re-add `COPY .../node_modules/.prisma`: under pnpm there is no top-level node_modules/.prisma,
+# so that COPY fails the build.
 USER nextjs
 EXPOSE 3000
 # Liveness/readiness: confirm the server actually serves HTTP, not just that the process is up.
