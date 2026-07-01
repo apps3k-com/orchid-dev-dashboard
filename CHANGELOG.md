@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.1](https://github.com/apps3k-com/orchid-dev-dashboard/compare/v1.0.0...v1.0.1) (2026-07-01)
+
+
+### Fixed
+
+* **deps:** force postcss &gt;=8.5.10 via pnpm override (XSS advisory) ([cb73f19](https://github.com/apps3k-com/orchid-dev-dashboard/commit/cb73f193f68b8bcdeef078ec213a77ad3592bec5))
+* **docker:** drop pnpm-incompatible Prisma COPY that broke the bundle build ([261dec1](https://github.com/apps3k-com/orchid-dev-dashboard/commit/261dec1caf27e0851889aa2d53d726373f9eb75e))
+* **setup:** grant org Actions variables in the App manifest (PRODUCTS write) ([600425d](https://github.com/apps3k-com/orchid-dev-dashboard/commit/600425d8a2887f66b96c058e77c11704f2600e0f))
+
 ## 1.0.0 (2026-06-30)
 
 
