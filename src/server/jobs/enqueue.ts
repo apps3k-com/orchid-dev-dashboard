@@ -20,3 +20,12 @@ export async function enqueueAudit(auditId: string): Promise<boolean> {
   await quickAddJob({ connectionString }, "audit:run", { auditId });
   return true;
 }
+
+/** Enqueue an `audit:estimate` job for a pending AuditBatch. Coalesced per batch via `jobKey`.
+ *  Returns `true` when enqueued, `false` when there is no DB configured. */
+export async function enqueueBatchEstimate(batchId: string): Promise<boolean> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) return false;
+  await quickAddJob({ connectionString }, "audit:estimate", { batchId }, { jobKey: `batch:estimate:${batchId}` });
+  return true;
+}
