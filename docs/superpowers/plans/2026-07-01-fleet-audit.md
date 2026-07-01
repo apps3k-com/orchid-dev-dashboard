@@ -322,7 +322,7 @@ export async function getDefaultBranchHeadSha(repo: Repo): Promise<string> {
 }
 ```
 
-In `collectAuditContext`, replace the inline `const ref = ...; const commitSha = ref.data.object.sha;` with `const commitSha = await getDefaultBranchHeadSha(repo);` (keep the rest — tree, blobs — unchanged; note `repoClient` is still needed for the tree/blob calls).
+Leave `collectAuditContext` unchanged — it keeps its own single `repoClient` + inline `git/ref` request. Do NOT call `getDefaultBranchHeadSha` from inside it (that would do a second `repoClient` per audit on the hot path). `getDefaultBranchHeadSha` is a standalone helper used only by the estimate worker (`runBatchEstimate`). [Corrected after Task 3 review.]
 
 - [ ] **Step 3: Write the failing enqueue test**
 
