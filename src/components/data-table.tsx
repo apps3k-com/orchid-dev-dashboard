@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import {
   ChevronDownIcon,
@@ -98,6 +98,10 @@ export type DataTableProps<TData, TValue> = {
   filterColumns?: string[];
   /** Rows per page (default 10). */
   pageSize?: number;
+  /** Stable row id (e.g. (r) => r.id); required for selection. */
+  getRowId?: (row: TData) => string;
+  /** Called with selected row ids whenever selection changes (enables selection when provided). */
+  onSelectedIdsChange?: (ids: string[]) => void;
 };
 
 /** Generic sortable, filterable and paginated data table, composed from the shadcnstudio
@@ -108,12 +112,15 @@ export function DataTable<TData, TValue>({
   data,
   filterColumns = [],
   pageSize = 10,
+  getRowId,
+  onSelectedIdsChange,
 }: DataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize,
   });
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
   // React Compiler cannot memoize TanStack Table's returned functions; opting this
   // client data table out of compiler memoization is expected and safe.
@@ -121,9 +128,12 @@ export function DataTable<TData, TValue>({
   const table = useReactTable({
     data,
     columns,
-    state: { columnFilters, pagination },
+    state: { columnFilters, pagination, rowSelection },
     onColumnFiltersChange: setColumnFilters,
     onPaginationChange: setPagination,
+    onRowSelectionChange: setRowSelection,
+    getRowId,
+    enableRowSelection: Boolean(onSelectedIdsChange),
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -132,6 +142,10 @@ export function DataTable<TData, TValue>({
     getPaginationRowModel: getPaginationRowModel(),
     enableSortingRemoval: false,
   });
+
+  useEffect(() => {
+    onSelectedIdsChange?.(Object.keys(rowSelection));
+  }, [rowSelection, onSelectedIdsChange]);
 
   const { pages, showLeftEllipsis, showRightEllipsis } = usePagination({
     currentPage: table.getState().pagination.pageIndex + 1,
