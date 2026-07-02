@@ -1,0 +1,34 @@
+# Durable LOCAL dev database for Orchid, run under OrbStack (or any Docker engine).
+#
+# Only Postgres lives here — the app runs on the HOST via `pnpm dev:env` (with its in-process
+# graphile-worker). Data persists in the named volume across restarts; `restart: unless-stopped`
+# brings it back after a reboot / OrbStack restart. Published on :5433 so it coexists with a
+# Homebrew Postgres on :5432.
+#
+# This is NOT the shipped self-host bundle — see docker-compose.yml for the full app+db stack
+# (which deliberately does not expose the DB port). Use:
+#   pnpm db:up      # start (waits until healthy)
+#   pnpm db:migrate # apply Prisma migrations
+#   pnpm db:down    # stop (keeps data)
+#   pnpm db:reset   # wipe volume + recreate + migrate
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: orchid-dev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: orchid
+      POSTGRES_PASSWORD: orchid
+      POSTGRES_DB: orchid
+    ports:
+      - "5433:5432"
+    volumes:
+      - orchid-dev-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orchid -d orchid"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  orchid-dev-db:

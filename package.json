@@ -7,6 +7,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
+    "dev:env": "bash scripts/dev-env.sh",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
@@ -17,6 +18,10 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:dev": "prisma migrate dev",
+    "db:up": "docker compose -f docker-compose.dev.yml up -d --wait",
+    "db:down": "docker compose -f docker-compose.dev.yml down",
+    "db:reset": "docker compose -f docker-compose.dev.yml down -v && docker compose -f docker-compose.dev.yml up -d --wait && pnpm run db:migrate",
+    "db:migrate": "DATABASE_URL=postgres://orchid:orchid@localhost:5433/orchid prisma migrate deploy",
     "docstring:coverage": "node scripts/docstring-coverage.mjs",
     "key:rotate": "node scripts/rotate-encryption-key.mjs"
   },
