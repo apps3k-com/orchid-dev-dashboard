@@ -11,7 +11,7 @@ import { briefError } from "@/server/log";
 /** Output-token budget reserved per audit (for the cost estimate + the request cap). */
 export const AUDIT_MAX_OUTPUT_TOKENS = 8000;
 
-const SYSTEM_PROMPT = [
+export const SYSTEM_PROMPT = [
   "You are a defensive configuration reviewer for a repository's AI coding-agent and CI hook setup",
   "(.claude/**, .codex/**, AGENTS.md/CLAUDE.md/CODEX.md, .github/workflows/*, .coderabbit.yaml,",
   "docs/agents/*). Review ONLY the provided files and report redundancies, misconfigurations,",
@@ -34,7 +34,7 @@ export function estimateUsd(model: string, inputTokens: number, outputTokens: nu
 }
 
 /** Per-run cost ceiling (USD) from `ORCHID_AUDIT_MAX_USD`, default $0.50. */
-function auditMaxUsd(): number {
+export function auditMaxUsd(): number {
   const raw = Number(process.env.ORCHID_AUDIT_MAX_USD);
   return Number.isFinite(raw) && raw > 0 ? raw : 0.5;
 }
@@ -42,7 +42,7 @@ function auditMaxUsd(): number {
 const clampScore = (score: number): number => Math.max(0, Math.min(100, Math.round(score)));
 
 /** Assemble the user prompt: the rule-based hook drift, any omitted files, then each config file. */
-function buildContent(
+export function buildContent(
   repo: Repo,
   files: AuditFile[],
   hookStates: { path: string; status: string }[],
