@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AuditFixButton } from "@/components/audit-fix-button";
 import { AuditRunForm } from "@/components/audit-run-form";
+import { severityVariant, statusVariant } from "@/lib/audit-ui";
 import { requireUser } from "@/server/auth/require";
 import { isLlmAdmin } from "@/server/llm/admin";
 import { getProviderKeySummaries } from "@/server/llm/keys";
@@ -14,29 +15,12 @@ import { prisma } from "@/server/db";
 
 export const dynamic = "force-dynamic";
 
-/** Badge variant per finding severity. */
-const SEVERITY_VARIANT: Record<string, "destructive" | "secondary" | "outline"> = {
-  critical: "destructive",
-  high: "destructive",
-  medium: "secondary",
-  low: "outline",
-  info: "outline",
-};
-
-/** Badge variant per audit run status. */
-const STATUS_VARIANT: Record<string, "secondary" | "destructive" | "outline"> = {
-  completed: "secondary",
-  failed: "destructive",
-  running: "outline",
-  pending: "outline",
-};
-
 /** One finding: severity + category badges, title, cited file, rationale, and recommendation. */
 function FindingRow({ finding }: { finding: AuditFinding }) {
   return (
     <div className="flex flex-col gap-1 text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={SEVERITY_VARIANT[finding.severity] ?? "outline"}>{finding.severity}</Badge>
+        <Badge variant={severityVariant(finding.severity)}>{finding.severity}</Badge>
         <Badge variant="outline">{finding.category}</Badge>
         <span className="font-medium">{finding.title}</span>
       </div>
@@ -127,7 +111,7 @@ export default async function RepoAuditPage({ params }: { params: Promise<{ id: 
           <CardHeader>
             <CardTitle className="flex items-center justify-between gap-2">
               <span>Latest audit</span>
-              <Badge variant={STATUS_VARIANT[audit.status] ?? "outline"}>{audit.status}</Badge>
+              <Badge variant={statusVariant(audit.status)}>{audit.status}</Badge>
             </CardTitle>
             <CardDescription>
               {audit.model} · {audit.findings.length} finding

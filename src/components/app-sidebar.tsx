@@ -9,6 +9,7 @@ import {
   KeyRound,
   LayoutDashboard,
   LogOut,
+  ShieldCheck,
   Tags,
   Webhook,
   Workflow,
@@ -43,6 +44,7 @@ const VIEWS: NavItem[] = [
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/repos", label: "Repositories", icon: FolderGit2 },
   { href: "/hooks", label: "Hooks", icon: Webhook },
+  { href: "/audits", label: "Audits", icon: ShieldCheck },
 ];
 
 const SETTINGS: NavItem[] = [
