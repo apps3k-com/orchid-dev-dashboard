@@ -1,9 +1,12 @@
 "use client";
 
+import { useMemo, useState } from "react";
+
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table";
+import { PullRequestDetailModal } from "@/components/pull-request-detail-modal";
 
 /** One open pull request row on the cross-repo board (serializable, built server-side). */
 export type PullRow = {
@@ -34,56 +37,69 @@ function checksBadge(state: string) {
   return <span className="text-muted-foreground">—</span>;
 }
 
-const columns: ColumnDef<PullRow>[] = [
-  {
-    accessorKey: "repo",
-    header: "Repository",
-    filterFn: "equalsString",
-    cell: ({ row }) => <span className="text-muted-foreground">{row.getValue("repo")}</span>,
-  },
-  {
-    accessorKey: "title",
-    header: "Pull request",
-    cell: ({ row }) => (
-      <a
-        href={row.original.url}
-        className="font-medium hover:underline"
-        target="_blank"
-        rel="noreferrer"
-      >
-        #{row.original.number} {row.getValue("title")}
-        <span className="sr-only"> (opens in a new tab)</span>
-      </a>
-    ),
-  },
-  {
-    accessorKey: "author",
-    header: "Author",
-    cell: ({ row }) => <span className="text-muted-foreground">{row.getValue("author")}</span>,
-  },
-  {
-    accessorKey: "base",
-    header: "Base",
-    cell: ({ row }) => <span className="text-muted-foreground">{row.getValue("base")}</span>,
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    filterFn: "equalsString",
-    cell: ({ row }) => {
-      const status = row.getValue<string>("status");
-      return <Badge variant={STATUS_VARIANT[status] ?? "outline"}>{status}</Badge>;
+function createColumns(onOpen: (row: PullRow) => void): ColumnDef<PullRow>[] {
+  return [
+    {
+      accessorKey: "repo",
+      header: "Repository",
+      filterFn: "equalsString",
+      cell: ({ row }) => <span className="text-muted-foreground">{row.getValue("repo")}</span>,
     },
-  },
-  {
-    accessorKey: "checks",
-    header: "Checks",
-    enableSorting: false,
-    cell: ({ row }) => checksBadge(row.getValue<string>("checks")),
-  },
-];
+    {
+      accessorKey: "title",
+      header: "Pull request",
+      cell: ({ row }) => (
+        <button
+          type="button"
+          onClick={() => onOpen(row.original)}
+          className="text-left font-medium hover:underline"
+        >
+          #{row.original.number} {row.getValue("title")}
+        </button>
+      ),
+    },
+    {
+      accessorKey: "author",
+      header: "Author",
+      cell: ({ row }) => <span className="text-muted-foreground">{row.getValue("author")}</span>,
+    },
+    {
+      accessorKey: "base",
+      header: "Base",
+      cell: ({ row }) => <span className="text-muted-foreground">{row.getValue("base")}</span>,
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      filterFn: "equalsString",
+      cell: ({ row }) => {
+        const status = row.getValue<string>("status");
+        return <Badge variant={STATUS_VARIANT[status] ?? "outline"}>{status}</Badge>;
+      },
+    },
+    {
+      accessorKey: "checks",
+      header: "Checks",
+      enableSorting: false,
+      cell: ({ row }) => checksBadge(row.getValue<string>("checks")),
+    },
+  ];
+}
 
-/** Sortable/filterable table of open pull requests across all managed repos (client). */
+/** Sortable/filterable table of open pull requests across all managed repos (client). Clicking a
+ *  PR title opens a modal with its live timeline (comments, reviews, commits, label/state events). */
 export function PullsTable({ rows }: { rows: PullRow[] }) {
-  return <DataTable columns={columns} data={rows} filterColumns={["repo", "status"]} />;
+  const [selected, setSelected] = useState<PullRow | null>(null);
+  const columns = useMemo(() => createColumns(setSelected), []);
+  return (
+    <>
+      <DataTable columns={columns} data={rows} filterColumns={["repo", "status"]} />
+      <PullRequestDetailModal
+        pull={selected}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null);
+        }}
+      />
+    </>
+  );
 }
