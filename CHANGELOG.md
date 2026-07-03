@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.1.0](https://github.com/apps3k-com/orchid-dev-dashboard/compare/v1.0.0...v1.1.0) (2026-07-03)
+
+
+### Added
+
+* **audits:** /audits overview page + sidebar + UI-import guard ([2b95a9e](https://github.com/apps3k-com/orchid-dev-dashboard/commit/2b95a9e506631371ecff5c15a63474fac2a46f0a))
+* **audits:** add AuditBatch + AuditBatchItem models ([c54033a](https://github.com/apps3k-com/orchid-dev-dashboard/commit/c54033a50705079b114e07108487c70341272019))
+* **audits:** audit:estimate worker + enqueue + head-sha helper ([63c08f3](https://github.com/apps3k-com/orchid-dev-dashboard/commit/63c08f333930959d4843567c1c8489fe4d4de5b2))
+* **audits:** batch estimate/confirm panel ([6f59e8b](https://github.com/apps3k-com/orchid-dev-dashboard/commit/6f59e8bc76424265cf38f388cb7dc18a87bf7355))
+* **audits:** batch server actions (start/confirm/cancel/state) ([dce138d](https://github.com/apps3k-com/orchid-dev-dashboard/commit/dce138d3c831877ead8d56717e8ef6fb6f9edfe7))
+* **audits:** Fleet-Audit — /audits overview + batch estimate/confirm/run ([94b7aef](https://github.com/apps3k-com/orchid-dev-dashboard/commit/94b7aef67d5993d74cd9fb2ebd64d5964592874c))
+* **audits:** pure batch decision + aggregation logic ([056fad1](https://github.com/apps3k-com/orchid-dev-dashboard/commit/056fad1d398ea01abb668064372ef3ef81568203))
+* **audits:** row selection + Audit selected action ([194afcb](https://github.com/apps3k-com/orchid-dev-dashboard/commit/194afcba112f739b9414b0edd0047751a34301e9))
+* **audits:** shared badge helper + install fleet UI blocks ([a49df4a](https://github.com/apps3k-com/orchid-dev-dashboard/commit/a49df4a773a30456ee8264f9e2f3373275323662))
+* **compliance:** Tier-0 adoption compliance tracker ([8107f71](https://github.com/apps3k-com/orchid-dev-dashboard/commit/8107f715c8b05c440cd907dcc1140e7a10a5563d))
+* **compliance:** Tier-0 adoption compliance tracker ([b0edf83](https://github.com/apps3k-com/orchid-dev-dashboard/commit/b0edf83d7ec227f1038f2fa2b29f39b2c53be518))
+
+
+### Fixed
+
+* **audits:** complete a running batch with no active audits (Task 4 review) ([d63a911](https://github.com/apps3k-com/orchid-dev-dashboard/commit/d63a9113f1088c2d5622a11f3dd69cb4d1979ac5))
+* **audits:** consent gate + open-findings filter + guard negative test (final review) ([04fc66f](https://github.com/apps3k-com/orchid-dev-dashboard/commit/04fc66f0b769a5a141d59d08a26bb18fc9aa6743))
+* **audits:** estimate applies per-run cap + default-all selection (review) ([ce13f6d](https://github.com/apps3k-com/orchid-dev-dashboard/commit/ce13f6d5e63ef26cf7666f5c2e31c83662e2463d))
+* **audits:** non-numeric migration name so it sorts after 9_repo_audit on fresh DBs ([b5f8540](https://github.com/apps3k-com/orchid-dev-dashboard/commit/b5f8540139c796694427c37765279710bfec5a98))
+* **audits:** re-poll batch state after confirm (Task 8 review) ([919f52a](https://github.com/apps3k-com/orchid-dev-dashboard/commit/919f52aa4dff46aab2ca0fef01ce289c3d5f5f62))
+* **audits:** sequential migration name (10_) so it applies after 9_repo_audit on fresh DBs ([281c0b5](https://github.com/apps3k-com/orchid-dev-dashboard/commit/281c0b53d320931a1de864fffcce2af87fc54504))
+* **compliance:** require the full Tier-0 set before reporting tier 0 ([ebd60d1](https://github.com/apps3k-com/orchid-dev-dashboard/commit/ebd60d1cfc332d60215fd36219b2eb2511180eed))
+* **deps:** force postcss &gt;=8.5.10 via pnpm override (XSS advisory) ([cb73f19](https://github.com/apps3k-com/orchid-dev-dashboard/commit/cb73f193f68b8bcdeef078ec213a77ad3592bec5))
+* **docker:** drop pnpm-incompatible Prisma COPY that broke the bundle build ([261dec1](https://github.com/apps3k-com/orchid-dev-dashboard/commit/261dec1caf27e0851889aa2d53d726373f9eb75e))
+* **setup:** grant org Actions variables in the App manifest (PRODUCTS write) ([600425d](https://github.com/apps3k-com/orchid-dev-dashboard/commit/600425d8a2887f66b96c058e77c11704f2600e0f))
+
+
+### Changed
+
+* **audits:** keep collectAuditContext single repoClient call (Task 3 review) ([1c5dacf](https://github.com/apps3k-com/orchid-dev-dashboard/commit/1c5dacf0b764a302d77433ad20ae2179b4ec9f5c))
+
 ## 1.0.0 (2026-06-30)
 
 
