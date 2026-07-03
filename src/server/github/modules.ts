@@ -24,9 +24,11 @@ interface ModulesBlobResult {
 const sameModules = (a: string[], b: string[]): boolean =>
   a.length === b.length && a.every((x, i) => x === b[i]);
 
-/** Read the repo's `.github/modules.yaml` from the default branch (empty list if absent).
- *  Uses GraphQL `object(expression:)` so an absent file resolves to `null` (a 200 response)
- *  instead of a 404; genuine errors (auth, rate-limit) still throw and are handled by the caller. */
+/** Read the repo's `.github/modules.yaml` from the default branch. Only a genuinely absent file
+ *  (`object === null`) yields an empty list; an inaccessible repository (`repository === null`) or a
+ *  non-text blob (`text === null`, e.g. a binary file) throws, so read failures are never silently
+ *  reported as "no modules". Uses GraphQL `object(expression:)` so an absent file resolves to `null`
+ *  (a 200 response) instead of a 404 that the Next dev overlay would surface as a red Console Error. */
 export async function getRepoModules(repo: Repo): Promise<string[]> {
   const { octokit, owner, name, base } = await repoClient(repo);
   const res = await octokit.graphql<ModulesBlobResult>(MODULES_QUERY, {
@@ -34,8 +36,22 @@ export async function getRepoModules(repo: Repo): Promise<string[]> {
     name,
     expr: `${base}:${MODULES_PATH}`,
   });
-  const text = res.repository?.object?.text;
-  return text ? parseModulesYaml(text) : [];
+
+  // A null repository can't be resolved or accessed (auth/permission) — a real failure, not an absent
+  // file. GitHub normally attaches an errors[] entry (so octokit already throws), but guard explicitly
+  // so it can never be misread as "no modules".
+  if (!res.repository) {
+    throw new Error(`getRepoModules: repository ${owner}/${name} not found or inaccessible`);
+  }
+  // A null object is the file (or branch) genuinely absent → no modules configured yet.
+  const object = res.repository.object;
+  if (object == null) return [];
+  // The path resolved to something other than readable UTF-8 text (a binary blob, tree, submodule…).
+  // Surface it rather than silently reporting "no modules".
+  if (typeof object.text !== "string") {
+    throw new Error(`getRepoModules: ${MODULES_PATH} in ${owner}/${name} is not a readable text file`);
+  }
+  return parseModulesYaml(object.text);
 }
 
 /** Propose a module-list change as a PR (no-op guard avoids empty PRs). Repo files change via PR. */
