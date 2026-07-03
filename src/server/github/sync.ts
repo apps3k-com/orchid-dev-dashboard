@@ -12,6 +12,7 @@ import {
 } from "@/server/github/projects-map";
 import { reconcileAutomations } from "@/server/automations/reconcile";
 import { syncHooks } from "@/server/github/hooks";
+import { syncStandards } from "@/server/github/standards";
 import { briefError } from "@/server/log";
 
 const PR_SEARCH = `
@@ -340,6 +341,7 @@ export async function syncAll(): Promise<{
   projectItems: number;
   automations: number;
   hooks: number;
+  standards: number;
 }> {
   const orgs = await syncInstallations();
   const orgRows = await prisma.org.findMany();
@@ -354,5 +356,6 @@ export async function syncAll(): Promise<{
   const projectItems = await syncProjectItems();
   const automations = await reconcileAutomations();
   const hooks = await syncHooks();
-  return { orgs, repos, pulls, projects, projectItems, automations, hooks };
+  const standards = await syncStandards();
+  return { orgs, repos, pulls, projects, projectItems, automations, hooks, standards };
 }

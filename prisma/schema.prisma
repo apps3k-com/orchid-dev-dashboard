@@ -45,6 +45,7 @@ model Repo {
   automations   AutomationInstall[]
   hookStates    RepoHookState[]
   audits        RepoAudit[]
+  standards     RepoStandard[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -149,6 +150,21 @@ model RepoHookState {
   syncedAt    DateTime @default(now())
 
   @@unique([repoId, path])
+  @@index([repoId])
+}
+
+/// Per-standard Tier-0 compliance of a repo vs the apps3k workflow-template baseline
+/// (`TIER0_STANDARDS`). One row per repo + standard key. CACHE.
+model RepoStandard {
+  id       String   @id @default(cuid())
+  repo     Repo     @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  repoId   String
+  key      String // StandardKey: security-scan | dependabot | codeowners | license | ...
+  tier     Int      @default(0)
+  status   String // present | missing
+  syncedAt DateTime @default(now())
+
+  @@unique([repoId, key])
   @@index([repoId])
 }
 
