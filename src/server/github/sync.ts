@@ -169,7 +169,21 @@ export async function syncPulls(org: Org): Promise<number> {
   let after: string | null = null;
 
   do {
-    const res: PrSearchResult = await octokit.graphql<PrSearchResult>(PR_SEARCH, { q, after });
+    let res: PrSearchResult;
+    try {
+      res = await octokit.graphql<PrSearchResult>(PR_SEARCH, { q, after });
+    } catch (error) {
+      // GitHub returns PARTIAL data plus a per-field error when a queried field needs a permission the
+      // App installation lacks — here `statusCheckRollup` needs Checks + Commit-statuses read. Octokit
+      // throws on the `errors` array even though usable data is attached, so use that partial data and
+      // let the missing field degrade to null (checksState) instead of failing + retrying the sync.
+      const partial = (error as { data?: PrSearchResult }).data;
+      if (!partial?.search) throw error;
+      console.warn(
+        "syncPulls: partial PR data — grant the GitHub App 'Checks' + 'Commit statuses' (read) to populate PR check state.",
+      );
+      res = partial;
+    }
     for (const raw of res.search.nodes) {
       if (!("id" in raw) || !raw.id) continue;
       const m = mapPrNode(raw as GraphqlPrNode);

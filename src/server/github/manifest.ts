@@ -3,7 +3,8 @@
  * App in one click. See https://docs.github.com/apps/sharing-github-apps/registering-a-github-app-from-a-manifest.
  *
  * Permissions cover what Orchid needs to read repos/PRs/Projects and to write modules
- * (Contents → PR) and automations. Both repo- and org-level Actions Variables are included
+ * (Contents → PR) and automations. `checks` + `statuses` (read) are required for the PR board's
+ * check-rollup state (GraphQL `statusCheckRollup`). Both repo- and org-level Actions Variables are included
  * (`actions_variables` / `organization_actions_variables`) — the org one is required to write the
  * org-wide PRODUCTS variable. Keys verified against a live App's granted permissions object.
  *
@@ -22,6 +23,8 @@ export function buildAppManifest(appUrl: string, name: string) {
       contents: "write",
       issues: "write",
       pull_requests: "write",
+      checks: "read",
+      statuses: "read",
       members: "read",
       metadata: "read",
       organization_projects: "write",
