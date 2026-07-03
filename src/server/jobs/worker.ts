@@ -1,6 +1,7 @@
 import { type Runner, run } from "graphile-worker";
 import { syncAll } from "@/server/github/sync";
 import { runAudit } from "@/server/llm/audit";
+import { runBatchEstimate } from "@/server/llm/audit-estimate";
 
 const globalForWorker = globalThis as unknown as { orchidWorker?: Runner };
 
@@ -25,6 +26,11 @@ export async function startWorker(): Promise<void> {
         // Fail (don't silently ack) a malformed job so a queue-contract regression is visible.
         if (!auditId) throw new Error("audit:run job is missing auditId");
         await runAudit(auditId);
+      },
+      "audit:estimate": async (payload) => {
+        const { batchId } = (payload ?? {}) as { batchId?: string };
+        if (!batchId) throw new Error("audit:estimate job is missing batchId");
+        await runBatchEstimate(batchId);
       },
     },
     crontab: "*/5 * * * * sync:all",

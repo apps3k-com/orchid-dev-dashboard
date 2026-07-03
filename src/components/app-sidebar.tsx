@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BadgeCheck,
   FolderGit2,
   FolderKanban,
   GitPullRequest,
@@ -44,7 +45,8 @@ const VIEWS: NavItem[] = [
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/repos", label: "Repositories", icon: FolderGit2 },
   { href: "/hooks", label: "Hooks", icon: Webhook },
-  { href: "/compliance", label: "Compliance", icon: ShieldCheck },
+  { href: "/audits", label: "Audits", icon: ShieldCheck },
+  { href: "/compliance", label: "Compliance", icon: BadgeCheck },
 ];
 
 const SETTINGS: NavItem[] = [

@@ -16,38 +16,39 @@ datasource db {
 
 /// A GitHub organization (or user) the installed App can manage. CACHE.
 model Org {
-  id             String   @id @default(cuid())
-  githubId       Int      @unique // immutable GitHub account id; stable across renames — the upsert key
-  login          String   @unique // mutable display handle (changes on rename)
+  id             String    @id @default(cuid())
+  githubId       Int       @unique // immutable GitHub account id; stable across renames — the upsert key
+  login          String    @unique // mutable display handle (changes on rename)
   name           String?
-  installationId Int?     @unique
+  installationId Int?      @unique
   avatarUrl      String?
   repos          Repo[]
   projects       Project[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 }
 
 /// A repository within a managed org. CACHE.
 model Repo {
-  id            String   @id @default(cuid())
-  githubId      Int      @unique // immutable GitHub repo id; stable across rename/transfer — the upsert key
-  org           Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  orgId         String
-  name          String
-  nameWithOwner String   @unique // mutable (changes on rename/transfer)
-  defaultBranch String   @default("main")
-  isArchived    Boolean  @default(false)
-  isPrivate     Boolean  @default(false)
-  url           String?
-  pushedAt      DateTime?
-  pulls         PullRequest[]
-  automations   AutomationInstall[]
-  hookStates    RepoHookState[]
-  audits        RepoAudit[]
-  standards     RepoStandard[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String              @id @default(cuid())
+  githubId        Int                 @unique // immutable GitHub repo id; stable across rename/transfer — the upsert key
+  org             Org                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId           String
+  name            String
+  nameWithOwner   String              @unique // mutable (changes on rename/transfer)
+  defaultBranch   String              @default("main")
+  isArchived      Boolean             @default(false)
+  isPrivate       Boolean             @default(false)
+  url             String?
+  pushedAt        DateTime?
+  pulls           PullRequest[]
+  automations     AutomationInstall[]
+  hookStates      RepoHookState[]
+  audits          RepoAudit[]
+  auditBatchItems AuditBatchItem[]
+  standards       RepoStandard[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
   @@index([orgId])
 }
@@ -80,19 +81,19 @@ model PullRequest {
 
 /// A GitHub ProjectV2 owned by a managed org (cross-repo board). CACHE.
 model Project {
-  id               String    @id @default(cuid())
-  nodeId           String    @unique // immutable GitHub GraphQL node id
-  org              Org       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  id               String        @id @default(cuid())
+  nodeId           String        @unique // immutable GitHub GraphQL node id
+  org              Org           @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId            String
   number           Int
   title            String
   url              String
   shortDescription String?
-  closed           Boolean   @default(false)
-  itemCount        Int       @default(0)
+  closed           Boolean       @default(false)
+  itemCount        Int           @default(0)
   items            ProjectItem[]
   ghUpdatedAt      DateTime?
-  syncedAt         DateTime  @default(now())
+  syncedAt         DateTime      @default(now())
 
   @@unique([orgId, number])
   @@index([orgId])
@@ -111,8 +112,8 @@ model ProjectItem {
   state       String? // OPEN | CLOSED | MERGED (issues/PRs)
   status      String? // Status single-select option name (null = no Status)
   priority    String? // Priority single-select option name, if the project has one
-  assignees   String[] @default([]) // assignee logins (GitHub caps at 10/item)
-  labels      String[] @default([]) // label names
+  assignees   String[]  @default([]) // assignee logins (GitHub caps at 10/item)
+  labels      String[]  @default([]) // label names
   contentRepo String? // nameWithOwner of the item's source repo
   ghUpdatedAt DateTime?
   syncedAt    DateTime  @default(now())
@@ -209,12 +210,12 @@ model AppConfig {
 
 /// Per-resource sync cursor/last-run bookkeeping for the worker. APP.
 model SyncState {
-  id        String   @id @default(cuid())
-  resource  String   @unique // e.g. "pulls", "projects:<org>", "taxonomy:<repo>"
+  id        String    @id @default(cuid())
+  resource  String    @unique // e.g. "pulls", "projects:<org>", "taxonomy:<repo>"
   cursor    String?
   lastRunAt DateTime?
   lastError String?
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime  @updatedAt
 }
 
 /// A BYOK LLM provider credential for the agent/hook auditor. The key is stored ENCRYPTED at rest
@@ -234,22 +235,23 @@ model ProviderKey {
 
 /// One LLM-powered audit run of a repo's agent + hook configuration (BYOK auditor). APP/audit.
 model RepoAudit {
-  id               String    @id @default(cuid())
-  repo             Repo      @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  id               String          @id @default(cuid())
+  repo             Repo            @relation(fields: [repoId], references: [id], onDelete: Cascade)
   repoId           String
   provider         String // "anthropic"
   model            String // e.g. "claude-sonnet-4-6"
-  status           String    @default("pending") // pending | running | completed | failed
+  status           String          @default("pending") // pending | running | completed | failed
   commitSha        String? // default-branch head the audit ran against (reproducibility)
   score            Int? // overall config-health score 0..100
   summary          String? // overall assessment
   inputTokens      Int?
   outputTokens     Int?
-  estimatedUsd     Decimal?  @db.Decimal(10, 4)
+  estimatedUsd     Decimal?        @db.Decimal(10, 4)
   error            String? // briefError() output on failure
   triggeredByLogin String? // who ran it
   findings         AuditFinding[]
-  createdAt        DateTime  @default(now())
+  batchItem        AuditBatchItem?
+  createdAt        DateTime        @default(now())
   completedAt      DateTime?
 
   @@index([repoId])
@@ -276,4 +278,46 @@ model AuditFinding {
   createdAt      DateTime  @default(now())
 
   @@index([auditId])
+}
+
+/// A fleet-wide audit run: estimates then runs RepoAudit for many repos at once. APP/audit.
+model AuditBatch {
+  id                        String           @id @default(cuid())
+  status                    String           @default("estimating") // estimating | estimated | running | completed | cancelled | failed
+  force                     Boolean          @default(false) // re-audit even if the commit is unchanged
+  triggeredByLogin          String?
+  totalEstimatedUsd         Decimal?         @db.Decimal(10, 4)
+  totalEstimatedInputTokens Int?
+  repoCount                 Int
+  auditCount                Int?
+  skippedCount              Int?
+  error                     String?
+  items                     AuditBatchItem[]
+  createdAt                 DateTime         @default(now())
+  estimatedAt               DateTime?
+  confirmedAt               DateTime?
+  completedAt               DateTime?
+
+  @@index([status])
+}
+
+/// One repo's line item within an AuditBatch (estimate decision + resulting RepoAudit). APP/audit.
+model AuditBatchItem {
+  id                   String     @id @default(cuid())
+  batch                AuditBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  batchId              String
+  repo                 Repo       @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  repoId               String
+  decision             String     @default("pending") // pending | will_audit | skip_unchanged | skip_no_config | error
+  estimatedInputTokens Int?
+  estimatedUsd         Decimal?   @db.Decimal(10, 4)
+  commitSha            String?
+  lastAuditCommitSha   String?
+  error                String?
+  audit                RepoAudit? @relation(fields: [auditId], references: [id], onDelete: SetNull)
+  auditId              String?    @unique
+  createdAt            DateTime   @default(now())
+
+  @@unique([batchId, repoId])
+  @@index([batchId])
 }

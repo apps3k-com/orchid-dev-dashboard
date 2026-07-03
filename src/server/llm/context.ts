@@ -20,6 +20,18 @@ export type AuditContext = {
   truncated: boolean;
 };
 
+/** Cheaply read a repo's default-branch head SHA (one git/ref call) — used to decide "unchanged since
+ *  last audit" before collecting the (more expensive) full config context. */
+export async function getDefaultBranchHeadSha(repo: Repo): Promise<string> {
+  const { octokit, owner, name, base } = await repoClient(repo);
+  const ref = await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", {
+    owner,
+    repo: name,
+    ref: `heads/${base}`,
+  });
+  return ref.data.object.sha;
+}
+
 /** Collect a repo's agent/hook config files (`.claude/**`, `.codex/**`, `.github/workflows/*`,
  *  `AGENTS.md`/`CLAUDE.md`/`CODEX.md`, `.coderabbit.yaml`, `docs/agents/*`) at the default-branch
  *  head, in priority order, bounded per-file and overall. Files dropped by the cap are reported in
