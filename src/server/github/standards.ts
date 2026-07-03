@@ -109,10 +109,13 @@ export function classifyStandards(paths: Set<string>): StandardState[] {
 }
 
 /** The highest fully-satisfied adoption tier, or null if the Tier-0 baseline is incomplete (pure).
- *  Only Tier 0 is defined today; Tier 1/2 join as those standards ship in the template. */
+ *  Requires a row for EVERY defined Tier-0 standard — not just those present in `states` — so stale
+ *  or partial data can never over-report a tier. Only Tier 0 is defined today; Tier 1/2 join as
+ *  those standards ship in the template. */
 export function computeTier(states: StandardState[]): number | null {
   const tier0 = states.filter((s) => s.tier === 0);
-  const complete = tier0.length > 0 && tier0.every((s) => s.status === "present");
+  const complete =
+    tier0.length === TIER0_STANDARDS.length && tier0.every((s) => s.status === "present");
   return complete ? 0 : null;
 }
 

@@ -62,4 +62,10 @@ describe("computeTier / tier0Gaps", () => {
   it("returns null for an empty state list", () => {
     expect(computeTier([])).toBeNull();
   });
+
+  it("returns null on partial data even when every present row passes (stale rows)", () => {
+    const partial = classifyStandards(paths(...ALL_TIER0)).filter((s) => s.key !== "dependabot");
+    expect(partial.every((s) => s.status === "present")).toBe(true);
+    expect(computeTier(partial)).toBeNull();
+  });
 });
