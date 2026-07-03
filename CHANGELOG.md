@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/apps3k-com/orchid-dev-dashboard/compare/v1.1.0...v1.1.1) (2026-07-03)
+
+
+### Fixed
+
+* **dev:** pin Turbopack workspace root to the repo ([da01c7e](https://github.com/apps3k-com/orchid-dev-dashboard/commit/da01c7eebcc2a6094274622ed7d020da762da0cd))
+* **github:** resilient PR sync + request Checks/Commit-statuses App permission ([2f8c146](https://github.com/apps3k-com/orchid-dev-dashboard/commit/2f8c1465daefbfe9125294be945d3d78e1bf4df3))
+
 ## [1.1.0](https://github.com/apps3k-com/orchid-dev-dashboard/compare/v1.0.0...v1.1.0) (2026-07-03)
 
 
