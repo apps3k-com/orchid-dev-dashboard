@@ -14,14 +14,16 @@ export async function getPullTimeline(pullRequestId: string): Promise<PullTimeli
   const user = await getSessionUser();
   if (!user) return null;
 
-  const pr = await prisma.pullRequest.findUnique({
-    where: { id: pullRequestId },
-    include: { repo: { include: { org: true } } },
-  });
-  if (!pr?.repo.org.installationId) return null;
-
-  const [owner] = pr.repo.nameWithOwner.split("/");
+  // All failures (DB, Octokit, GraphQL) funnel through one catch so the action honors its
+  // "returns null on any failure" contract and every failure is logged server-side.
   try {
+    const pr = await prisma.pullRequest.findUnique({
+      where: { id: pullRequestId },
+      include: { repo: { include: { org: true } } },
+    });
+    if (!pr?.repo.org.installationId) return null;
+
+    const [owner] = pr.repo.nameWithOwner.split("/");
     const octokit = await getInstallationOctokit(pr.repo.org.installationId);
     return await fetchPullTimeline({ octokit, owner, name: pr.repo.name, number: pr.number });
   } catch (error) {

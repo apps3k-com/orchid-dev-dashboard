@@ -52,25 +52,26 @@ export function PullRequestDetailModal({
 }) {
   // Keyed by the PR id so loading/timeline can be *derived* during render (no synchronous setState
   // in the effect): while the loaded result is for a different PR than the open one, we're loading.
+  const pullId = pull?.id ?? null;
   const [result, setResult] = useState<{ id: string; data: PullTimeline | null } | null>(null);
 
   useEffect(() => {
-    if (!pull) return;
+    if (!pullId) return;
     let cancelled = false;
-    getPullTimeline(pull.id)
+    getPullTimeline(pullId)
       .then((data) => {
-        if (!cancelled) setResult({ id: pull.id, data });
+        if (!cancelled) setResult({ id: pullId, data });
       })
       .catch(() => {
-        if (!cancelled) setResult({ id: pull.id, data: null });
+        if (!cancelled) setResult({ id: pullId, data: null });
       });
     return () => {
       cancelled = true;
     };
-  }, [pull]);
+  }, [pullId]);
 
-  const loading = pull !== null && result?.id !== pull.id;
-  const timeline = pull && result?.id === pull.id ? result.data : null;
+  const loading = pullId !== null && result?.id !== pullId;
+  const timeline = pullId !== null && result?.id === pullId ? result.data : null;
 
   return (
     <Dialog open={pull !== null} onOpenChange={onOpenChange}>
@@ -117,6 +118,7 @@ export function PullRequestDetailModal({
   );
 }
 
+/** The PR opening block (author + description) followed by its chronological activity feed. */
 function PullTimelineView({ timeline }: { timeline: PullTimeline }) {
   const { header, entries, hasMore } = timeline;
   return (
@@ -141,6 +143,7 @@ function PullTimelineView({ timeline }: { timeline: PullTimeline }) {
   );
 }
 
+/** The PR author, "opened this" time, state badge, and the PR description body. */
 function OpeningBlock({ header }: { header: PullTimelineHeader }) {
   return (
     <div className="space-y-2">
@@ -162,17 +165,19 @@ function OpeningBlock({ header }: { header: PullTimelineHeader }) {
   );
 }
 
+/** One timeline entry: a person entry (comment/review) shows an avatar dot + optional body card; a
+ *  non-person entry (commit/label/state event) shows an icon dot. */
 function FeedItem({ entry, isLast }: { entry: PullTimelineEntry; isLast: boolean }) {
-  const body = (entry.kind === "comment" || entry.kind === "review") && entry.body.trim();
-  const line = headlineOf(entry);
-  const isPerson = entry.kind === "comment" || entry.kind === "review";
+  // Narrow once: comment + review carry an avatar and a (possibly empty) body; others are icon-only.
+  const person = entry.kind === "comment" || entry.kind === "review" ? entry : null;
+  const body = person && person.body.trim() ? person.body : null;
   return (
     <TimelineItem status="done" className="items-start gap-x-0">
       <TimelineDot status="custom" className="size-6 border-none bg-transparent">
-        {isPerson ? (
+        {person ? (
           <Avatar className="size-6">
-            <AvatarImage src={(entry as { avatarUrl: string | null }).avatarUrl ?? undefined} alt="" />
-            <AvatarFallback className="text-[10px]">{initial(entry.actor)}</AvatarFallback>
+            <AvatarImage src={person.avatarUrl ?? undefined} alt="" />
+            <AvatarFallback className="text-[10px]">{initial(person.actor)}</AvatarFallback>
           </Avatar>
         ) : (
           <span className="flex size-6 items-center justify-center rounded-full bg-muted text-muted-foreground">
@@ -182,7 +187,7 @@ function FeedItem({ entry, isLast }: { entry: PullTimelineEntry; isLast: boolean
       </TimelineDot>
       {!isLast && <TimelineLine className="min-h-6" />}
       <TimelineHeading
-        title={line}
+        title={headlineOf(entry)}
         className="flex items-center gap-1 pt-0.5 pl-3 text-sm font-normal text-muted-foreground"
       >
         <span className="truncate">
@@ -193,7 +198,7 @@ function FeedItem({ entry, isLast }: { entry: PullTimelineEntry; isLast: boolean
       {body ? (
         <TimelineContent className="pt-1.5 pb-4 pl-3">
           <div className="whitespace-pre-wrap break-words rounded-md border bg-muted/40 p-3 text-sm">
-            {(entry as { body: string }).body}
+            {body}
           </div>
         </TimelineContent>
       ) : (
@@ -224,6 +229,7 @@ function iconOf(entry: PullTimelineEntry) {
   }
 }
 
+/** The action phrase for an entry's headline ("commented", "approved these changes", …). */
 function verbOf(entry: PullTimelineEntry): string {
   switch (entry.kind) {
     case "comment":
@@ -242,10 +248,12 @@ function verbOf(entry: PullTimelineEntry): string {
   }
 }
 
+/** Plain-text "<actor> <verb>" used as the row's title (hover tooltip / a11y). */
 function headlineOf(entry: PullTimelineEntry): string {
   return `${entry.actor ?? "someone"} ${verbOf(entry)}`;
 }
 
+/** Colored badge for the PR's state: Open / Draft / Merged / Closed. */
 function StateBadge({ state, isDraft }: { state: string; isDraft: boolean }) {
   if (state === "MERGED") {
     return <Badge className="border-transparent bg-violet-600 text-white">Merged</Badge>;
@@ -255,6 +263,7 @@ function StateBadge({ state, isDraft }: { state: string; isDraft: boolean }) {
   return <Badge variant="secondary">Open</Badge>;
 }
 
+/** Loading placeholder shown while the timeline is fetched. */
 function TimelineSkeleton() {
   return (
     <div className="space-y-4">

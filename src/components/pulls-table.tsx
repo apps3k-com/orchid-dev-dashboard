@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
 import { PullRequestDetailModal } from "@/components/pull-request-detail-modal";
 
@@ -37,6 +38,7 @@ function checksBadge(state: string) {
   return <span className="text-muted-foreground">—</span>;
 }
 
+/** Build the PR-board columns. The title cell opens the detail modal for its row via `onOpen`. */
 function createColumns(onOpen: (row: PullRow) => void): ColumnDef<PullRow>[] {
   return [
     {
@@ -49,13 +51,13 @@ function createColumns(onOpen: (row: PullRow) => void): ColumnDef<PullRow>[] {
       accessorKey: "title",
       header: "Pull request",
       cell: ({ row }) => (
-        <button
-          type="button"
+        <Button
+          variant="link"
           onClick={() => onOpen(row.original)}
-          className="text-left font-medium hover:underline"
+          className="h-auto whitespace-normal p-0 text-left font-medium"
         >
           #{row.original.number} {row.getValue("title")}
-        </button>
+        </Button>
       ),
     },
     {
