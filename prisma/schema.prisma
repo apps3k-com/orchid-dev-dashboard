@@ -47,10 +47,28 @@ model Repo {
   audits          RepoAudit[]
   auditBatchItems AuditBatchItem[]
   standards       RepoStandard[]
+  modules         Module[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
   @@index([orgId])
+}
+
+/// Orchid-side presentation metadata for a repo module. The module NAMES live in the repo's
+/// `.github/modules.yaml` (and drive the label/dropdown sync); description + status are Orchid-only,
+/// so they can be edited directly without a PR. APP.
+model Module {
+  id          String   @id @default(cuid())
+  repo        Repo     @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  repoId      String
+  name        String // matches a name in .github/modules.yaml
+  description String   @default("")
+  status      String   @default("active") // active | deprecated
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([repoId, name])
+  @@index([repoId])
 }
 
 /// A cached open pull request (refreshed by the worker / on-demand). CACHE.
