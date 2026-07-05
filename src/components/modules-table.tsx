@@ -164,6 +164,7 @@ export function ModulesTable({ repoId, rows }: { repoId: string; rows: ModuleRow
 /** Inline edit form for a module's description + status (writes metadata directly). */
 function EditModuleForm({ repoId, module }: { repoId: string; module: ModuleRow }) {
   const [state, action, pending] = useActionState(updateModuleMetadata, INITIAL);
+  const [description, setDescription] = useState(module.description);
   const [status, setStatus] = useState(module.status);
   const descId = useId();
   const statusId = useId();
@@ -179,7 +180,8 @@ function EditModuleForm({ repoId, module }: { repoId: string; module: ModuleRow 
         <Input
           id={descId}
           name="description"
-          defaultValue={module.description}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
           placeholder="What this module covers"
           autoComplete="off"
         />

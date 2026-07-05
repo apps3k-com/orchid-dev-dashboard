@@ -3,8 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import type { Repo } from "@prisma/client";
+
 import { getSessionUser } from "@/server/auth/session";
 import { prisma } from "@/server/db";
+import { isOrgMember } from "@/server/github/activation";
 import { getRepoModules, proposeModules } from "@/server/github/modules";
 import { briefError } from "@/server/log";
 
@@ -20,6 +23,27 @@ const metadataSchema = z.object({
   description: z.string().max(500).optional().default(""),
   status: z.enum(MODULE_STATUSES).optional().default("active"),
 });
+
+/** Authorize a repo-scoped module mutation: the caller must be a member of the repo's managed org
+ *  (repoId is client input, so signed-in alone is not enough — mirrors applyFix / resyncRepoHooks). */
+async function authorizeRepo(
+  repoId: string,
+  login: string,
+): Promise<{ ok: true; repo: Repo } | { ok: false; message: string }> {
+  const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+  if (!repo) return { ok: false, message: "Repository not found." };
+  const org = await prisma.org.findUnique({ where: { id: repo.orgId } });
+  if (!org) return { ok: false, message: "Organization not found." };
+  try {
+    if (!(await isOrgMember(org, login))) {
+      return { ok: false, message: `You are not a member of ${org.login}.` };
+    }
+  } catch (error) {
+    console.warn("authorizeRepo membership check failed", briefError(error));
+    return { ok: false, message: "Could not verify your organization membership — please try again." };
+  }
+  return { ok: true, repo };
+}
 
 /** Add a module: store its Orchid metadata (description/status) immediately and open a PR adding the
  *  NAME to `.github/modules.yaml` (the name drives the repo's label/dropdown sync). */
@@ -41,8 +65,9 @@ export async function addModule(
   const name = parsed.data.name.trim();
   if (!name) return { ok: false, message: "Module name is required." };
 
-  const repo = await prisma.repo.findUnique({ where: { id: repoId } });
-  if (!repo) return { ok: false, message: "Repository not found." };
+  const auth = await authorizeRepo(repoId, user.login);
+  if (!auth.ok) return auth;
+  const repo = auth.repo;
 
   try {
     const current = await getRepoModules(repo);
@@ -80,6 +105,9 @@ export async function updateModuleMetadata(
   if (!parsed.success) return { ok: false, message: "Invalid input." };
   const { repoId, name, description, status } = parsed.data;
 
+  const auth = await authorizeRepo(repoId, user.login);
+  if (!auth.ok) return auth;
+
   try {
     await prisma.module.upsert({
       where: { repoId_name: { repoId, name } },
@@ -99,8 +127,9 @@ export async function removeModule(repoId: string, name: string): Promise<Module
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Not signed in." };
 
-  const repo = await prisma.repo.findUnique({ where: { id: repoId } });
-  if (!repo) return { ok: false, message: "Repository not found." };
+  const auth = await authorizeRepo(repoId, user.login);
+  if (!auth.ok) return auth;
+  const repo = auth.repo;
 
   try {
     const current = await getRepoModules(repo);

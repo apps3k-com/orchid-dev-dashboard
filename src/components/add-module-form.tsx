@@ -22,6 +22,8 @@ const INITIAL: ModuleActionState = { ok: false, message: "" };
  *  metadata immediately and opens a PR adding the name to `.github/modules.yaml`. */
 export function AddModuleForm({ repoId }: { repoId: string }) {
   const [state, action, pending] = useActionState(addModule, INITIAL);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [status, setStatus] = useState("active");
   const nameId = useId();
   const statusId = useId();
@@ -35,7 +37,15 @@ export function AddModuleForm({ repoId }: { repoId: string }) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor={nameId}>Module name</Label>
-          <Input id={nameId} name="name" placeholder="auth" autoComplete="off" required />
+          <Input
+            id={nameId}
+            name="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="auth"
+            autoComplete="off"
+            required
+          />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor={statusId}>Status</Label>
@@ -56,6 +66,8 @@ export function AddModuleForm({ repoId }: { repoId: string }) {
           <Input
             id={descId}
             name="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
             placeholder="What this module covers"
             autoComplete="off"
           />
