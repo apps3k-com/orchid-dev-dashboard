@@ -14,6 +14,7 @@ export type HookRow = {
   match: number;
   outdated: number;
   missing: number;
+  confirmed: number;
   extra: number;
 };
 
@@ -45,6 +46,7 @@ const columns: ColumnDef<HookRow>[] = [
   num("match"),
   num("outdated"),
   num("missing"),
+  num("confirmed"),
   num("extra"),
 ];
 
