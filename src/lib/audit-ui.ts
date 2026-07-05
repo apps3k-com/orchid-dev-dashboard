@@ -26,3 +26,10 @@ export function severityVariant(severity: string): BadgeVariant {
 export function statusVariant(status: string): BadgeVariant {
   return STATUS_VARIANT[status] ?? "outline";
 }
+
+/** Percent (0–100, rounded) of a batch's audits that have reached a terminal state (completed or
+ *  failed) — drives the /audits progress bar. An empty batch (0 total) is 0%. */
+export function progressPct(progress: { total: number; completed: number; failed: number }): number {
+  if (progress.total === 0) return 0;
+  return Math.round(((progress.completed + progress.failed) / progress.total) * 100);
+}

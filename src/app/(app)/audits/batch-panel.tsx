@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { statusVariant } from "@/lib/audit-ui";
+import { progressPct, statusVariant } from "@/lib/audit-ui";
 
 import { cancelBatch, confirmBatch, getBatchState, type BatchView } from "./actions";
 
@@ -45,12 +45,6 @@ function decisionLabel(decision: string): { label: string; destructive: boolean 
     default:
       return { label: decision, destructive: false };
   }
-}
-
-/** Percent of a batch's audits that have reached a terminal state (completed or failed). */
-function progressPct(progress: { total: number; completed: number; failed: number }): number {
-  if (progress.total === 0) return 0;
-  return Math.round(((progress.completed + progress.failed) / progress.total) * 100);
 }
 
 /**
