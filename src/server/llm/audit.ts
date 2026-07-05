@@ -4,7 +4,7 @@ import { prisma } from "@/server/db";
 import { countInputTokens, runAuditMessage } from "@/server/llm/anthropic";
 import { type AuditFindingResult, validateFindings } from "@/server/llm/audit-schema";
 import { type AuditFile, collectAuditContext } from "@/server/llm/context";
-import { getDecryptedProviderKey } from "@/server/llm/keys";
+import { getDecryptedProviderKey, getDecryptedProviderKeyById } from "@/server/llm/keys";
 import { MODEL_PRICING } from "@/server/llm/providers";
 import { briefError } from "@/server/log";
 
@@ -105,7 +105,10 @@ export async function runAudit(auditId: string): Promise<void> {
       throw new Error(`No pricing configured for model ${audit.model} — cannot enforce the cost cap.`);
     }
 
-    const apiKey = await getDecryptedProviderKey("anthropic");
+    // Use the key chosen for this run (falling back to the provider default for pre-multikey audits).
+    const apiKey =
+      (audit.providerKeyId ? await getDecryptedProviderKeyById(audit.providerKeyId) : null) ??
+      (await getDecryptedProviderKey("anthropic"));
     if (!apiKey) throw new Error("No Anthropic key configured.");
 
     const { files, commitSha, omitted, truncated } = await collectAuditContext(audit.repo);

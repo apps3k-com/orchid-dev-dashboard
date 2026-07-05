@@ -9,7 +9,7 @@ import { AuditRunForm } from "@/components/audit-run-form";
 import { severityVariant, statusVariant } from "@/lib/audit-ui";
 import { requireUser } from "@/server/auth/require";
 import { isLlmAdmin } from "@/server/llm/admin";
-import { getProviderKeySummaries } from "@/server/llm/keys";
+import { getProviderSummaries } from "@/server/llm/keys";
 import { PROVIDERS } from "@/server/llm/providers";
 import { prisma } from "@/server/db";
 
@@ -63,11 +63,12 @@ export default async function RepoAuditPage({ params }: { params: Promise<{ id: 
   if (!repo) notFound();
 
   const audit = repo.audits[0] ?? null;
-  const anthropic = (await getProviderKeySummaries()).find((s) => s.provider === "anthropic");
-  const keyReady = Boolean(
-    anthropic?.configured && (anthropic.status === "valid" || anthropic.status === "rate_limited"),
-  );
-  const model = anthropic?.selectedModel ?? PROVIDERS.anthropic.defaultModel;
+  const anthropic = (await getProviderSummaries()).find((s) => s.provider === "anthropic");
+  const keyReady = Boolean(anthropic?.usable);
+  const model = anthropic?.defaultModel ?? PROVIDERS.anthropic.defaultModel;
+  const auditKeys = (anthropic?.keys ?? [])
+    .filter((k) => k.status === "valid" || k.status === "rate_limited")
+    .map((k) => ({ id: k.id, label: k.label, isDefault: k.isDefault }));
 
   return (
     <div className="space-y-6">
@@ -101,7 +102,7 @@ export default async function RepoAuditPage({ params }: { params: Promise<{ id: 
               first.
             </p>
           ) : (
-            <AuditRunForm repoId={repo.id} model={model} />
+            <AuditRunForm repoId={repo.id} model={model} keys={auditKeys} />
           )}
         </CardContent>
       </Card>

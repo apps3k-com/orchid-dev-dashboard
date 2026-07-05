@@ -8,8 +8,7 @@ import { isOrgMember } from "@/server/github/activation";
 import { proposeFiles } from "@/server/github/writeback";
 import { enqueueAudit } from "@/server/jobs/enqueue";
 import { isLlmAdmin } from "@/server/llm/admin";
-import { getProviderKeySummaries } from "@/server/llm/keys";
-import { PROVIDERS } from "@/server/llm/providers";
+import { getProviderDefaultModel, getProviderSummaries } from "@/server/llm/keys";
 import { briefError } from "@/server/log";
 
 /** Result of {@link requestAudit}, surfaced inline in the run form. */
@@ -36,22 +35,36 @@ export async function requestAudit(
   const repo = await prisma.repo.findUnique({ where: { id: repoId } });
   if (!repo) return { ok: false, message: "Repository not found." };
 
-  const anthropic = (await getProviderKeySummaries()).find((s) => s.provider === "anthropic");
-  if (
-    !anthropic?.configured ||
-    (anthropic.status !== "valid" && anthropic.status !== "rate_limited")
-  ) {
+  const anthropic = (await getProviderSummaries()).find((s) => s.provider === "anthropic");
+  if (!anthropic?.usable) {
     return {
       ok: false,
       message: "Configure a valid Anthropic key in Settings → AI providers first.",
     };
   }
-  const model = anthropic.selectedModel ?? PROVIDERS.anthropic.defaultModel;
+  // Pick the key: the one requested in the form (if usable) → the provider default → any usable key.
+  const usableKeys = anthropic.keys.filter((k) => k.status === "valid" || k.status === "rate_limited");
+  const requestedKeyId = String(formData.get("providerKeyId") ?? "");
+  const chosenKey =
+    usableKeys.find((k) => k.id === requestedKeyId) ??
+    usableKeys.find((k) => k.isDefault) ??
+    usableKeys[0];
+  if (!chosenKey) {
+    return { ok: false, message: "No usable Anthropic key — check Settings → AI providers." };
+  }
+  const model = await getProviderDefaultModel("anthropic");
 
   let auditId: string | null = null;
   try {
     const audit = await prisma.repoAudit.create({
-      data: { repoId, provider: "anthropic", model, status: "pending", triggeredByLogin: user.login },
+      data: {
+        repoId,
+        provider: "anthropic",
+        model,
+        providerKeyId: chosenKey.id,
+        status: "pending",
+        triggeredByLogin: user.login,
+      },
     });
     auditId = audit.id;
     // Whether enqueue returns false (no queue) or throws, the row must not be left "pending".

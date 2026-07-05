@@ -1,27 +1,30 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ProviderKeyForm } from "@/components/provider-key-form";
+import { Separator } from "@/components/ui/separator";
+import { ProviderKeys } from "@/components/provider-keys";
+import { ProviderSettingsForm } from "@/components/provider-settings-form";
 import { requireUser } from "@/server/auth/require";
 import { isLlmAdmin } from "@/server/llm/admin";
-import { getProviderKeySummaries } from "@/server/llm/keys";
+import { getProviderSummaries } from "@/server/llm/keys";
 
 export const dynamic = "force-dynamic";
 
-/** Badge variants for persisted provider-key validation states. */
+/** Badge variants for a key's validation status. */
 const STATUS_VARIANT: Record<string, "secondary" | "destructive" | "outline"> = {
   valid: "secondary",
   invalid: "destructive",
   rate_limited: "outline",
   unchecked: "outline",
-  "not configured": "outline",
 };
 
-/** BYOK provider keys for the agent & hook auditor. Keys are encrypted at rest; only LLM admins
- *  (env `ORCHID_LLM_ADMINS`) can add/replace them. Non-admins see the masked status read-only. */
+/** BYOK provider settings for the agent & hook auditor. Per provider: a default model (saved
+ *  separately from any key — item 7) and a set of labelled keys (item 8). Keys are encrypted at rest
+ *  and only the last 4 characters are shown. Only LLM admins (env `ORCHID_LLM_ADMINS`) can change the
+ *  model/keys; everyone else sees a read-only masked view. */
 export default async function AiProvidersPage() {
   const user = await requireUser();
   const admin = isLlmAdmin(user.login);
-  const summaries = await getProviderKeySummaries();
+  const summaries = await getProviderSummaries();
 
   return (
     <div className="space-y-6">
@@ -38,30 +41,39 @@ export default async function AiProvidersPage() {
         {summaries.map((provider) => (
           <Card key={provider.provider}>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between gap-2">
-                <span>{provider.label}</span>
-                <Badge variant={STATUS_VARIANT[provider.status] ?? "outline"}>
-                  {provider.status}
-                </Badge>
-              </CardTitle>
+              <CardTitle>{provider.label}</CardTitle>
               <CardDescription>
-                {provider.configured
-                  ? `Key ending ${provider.maskedHint} · model ${provider.selectedModel}`
-                  : "No key configured."}
+                {provider.keys.length === 0
+                  ? "No keys configured."
+                  : `${provider.keys.length} key${provider.keys.length === 1 ? "" : "s"} · default model ${provider.defaultModel}`}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-4">
               {admin ? (
-                <ProviderKeyForm
-                  provider={provider.provider}
-                  models={provider.models}
-                  defaultModel={provider.selectedModel ?? provider.defaultModel}
-                  configured={provider.configured}
-                />
-              ) : (
+                <>
+                  <ProviderSettingsForm
+                    provider={provider.provider}
+                    models={provider.models}
+                    defaultModel={provider.defaultModel}
+                  />
+                  <Separator />
+                  <ProviderKeys provider={provider.provider} keys={provider.keys} />
+                </>
+              ) : provider.keys.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Only an LLM admin can change this key.
+                  No keys configured. Managed by an LLM admin.
                 </p>
+              ) : (
+                <ul className="flex flex-col gap-2 text-sm">
+                  {provider.keys.map((k) => (
+                    <li key={k.id} className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{k.label}</span>
+                      {k.isDefault ? <Badge variant="secondary">default</Badge> : null}
+                      <Badge variant={STATUS_VARIANT[k.status] ?? "outline"}>{k.status}</Badge>
+                      <code className="text-xs text-muted-foreground">{k.maskedHint}</code>
+                    </li>
+                  ))}
+                </ul>
               )}
             </CardContent>
           </Card>
