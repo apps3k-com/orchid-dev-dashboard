@@ -25,6 +25,7 @@ export type AuditRow = {
   findingCount: number;
   lastRun: string | null; // ISO
   usd: number | null;
+  error: string | null; // failure reason when status === "failed"
 };
 
 const columns: ColumnDef<AuditRow>[] = [
@@ -62,7 +63,12 @@ const columns: ColumnDef<AuditRow>[] = [
       row.original.status === "none" ? (
         <span className="text-muted-foreground">—</span>
       ) : (
-        <Badge variant={statusVariant(row.original.status)}>{row.original.status}</Badge>
+        <div className="flex flex-col gap-1">
+          <Badge variant={statusVariant(row.original.status)}>{row.original.status}</Badge>
+          {row.original.status === "failed" && row.original.error ? (
+            <span className="max-w-xs text-xs break-words text-destructive">{row.original.error}</span>
+          ) : null}
+        </div>
       ),
   },
   {
@@ -100,7 +106,7 @@ const columns: ColumnDef<AuditRow>[] = [
  *  estimate for the selected repos, with a {@link BatchPanel} taking over once a batch starts. */
 export function AuditsTable({ rows }: { rows: AuditRow[] }) {
   const getRowId = useCallback((r: AuditRow) => r.id, []);
-  const [selected, setSelected] = useState<string[]>(() => rows.map((r) => r.id));
+  const [selected, setSelected] = useState<string[]>([]);
   const [force, setForce] = useState(false);
   const [consent, setConsent] = useState(false);
   const [batchId, setBatchId] = useState<string | null>(null);
@@ -138,7 +144,6 @@ export function AuditsTable({ rows }: { rows: AuditRow[] }) {
         pageSize={20}
         getRowId={getRowId}
         onSelectedIdsChange={setSelected}
-        initialSelectedIds={rows.map((r) => r.id)}
       />
 
       {batchId && <BatchPanel batchId={batchId} onDone={() => setBatchId(null)} />}

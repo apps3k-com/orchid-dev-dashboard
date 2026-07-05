@@ -143,8 +143,9 @@ export type BatchItemView = {
   nameWithOwner: string;
   decision: string;
   estimatedUsd: number | null;
-  error: string | null;
+  error: string | null; // estimate-phase error (AuditBatchItem.error)
   auditStatus: string | null;
+  auditError: string | null; // run error (RepoAudit.error) when the audit failed
 };
 
 /** Snapshot of a batch for the client panel (polled). */
@@ -164,7 +165,7 @@ export async function getBatchState(batchId: string): Promise<BatchView | null> 
     where: { id: batchId },
     include: {
       items: {
-        include: { repo: { select: { nameWithOwner: true } }, audit: { select: { status: true } } },
+        include: { repo: { select: { nameWithOwner: true } }, audit: { select: { status: true, error: true } } },
         orderBy: { createdAt: "asc" },
       },
     },
@@ -194,6 +195,7 @@ export async function getBatchState(batchId: string): Promise<BatchView | null> 
       estimatedUsd: i.estimatedUsd ? Number(i.estimatedUsd) : null,
       error: i.error,
       auditStatus: i.audit?.status ?? null,
+      auditError: i.audit?.error ?? null,
     })),
   };
 }
