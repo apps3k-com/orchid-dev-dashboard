@@ -37,5 +37,8 @@ CREATE UNIQUE INDEX "ProviderKey_provider_label_key" ON "ProviderKey"("provider"
 -- CreateIndex
 CREATE INDEX "ProviderKey_provider_idx" ON "ProviderKey"("provider");
 
+-- CreateIndex: partial unique constraint on provider where isDefault is true (one default per provider).
+CREATE UNIQUE INDEX "ProviderKey_provider_isDefault_key" ON "ProviderKey"("provider") WHERE "isDefault" = true;
+
 -- AlterTable
 ALTER TABLE "RepoAudit" ADD COLUMN "providerKeyId" TEXT;

@@ -228,13 +228,14 @@ model ProviderKey {
   keyEnc          String // encryptSecret(apiKey) — iv:tag:ciphertext, base64
   maskedHint      String    @db.VarChar(8) // last-4 of the key only ("…XXXX") — capped so the column can never hold key material
   status          String    @default("unchecked") // unchecked | valid | invalid | rate_limited
-  isDefault       Boolean   @default(false) // used unless another key is chosen at audit time
+  isDefault       Boolean   @default(false) // used unless another key is chosen at audit time; DB enforces one default per provider via partial unique index
   lastValidatedAt DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   @@unique([provider, label])
   @@index([provider])
+  // Note: partial unique index (provider WHERE isDefault=true) is in the migration SQL; Prisma doesn't natively support it
 }
 
 /// Instance-wide settings for a BYOK provider: the default model used for audits (kept separate from

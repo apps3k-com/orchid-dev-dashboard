@@ -134,10 +134,21 @@ export async function replaceProviderKey(
   return { ok: true, warning: result.ok ? undefined : result.error };
 }
 
-/** Remove a key; if it was the default, promote the provider's oldest remaining key (if any). */
+/** Remove a key; if it was the default, promote the provider's oldest remaining key (if any).
+ *  Refuses deletion if any queued/running audits still reference this key. */
 export async function removeProviderKey(keyId: string): Promise<{ ok: boolean; error?: string }> {
   const row = await prisma.providerKey.findUnique({ where: { id: keyId } });
   if (!row) return { ok: false, error: "Key not found." };
+
+  // Guard: check for active audits (pending or running) that reference this key.
+  const activeAudits = await prisma.repoAudit.findFirst({
+    where: { providerKeyId: keyId, status: { in: ["pending", "running"] } },
+    select: { id: true },
+  });
+  if (activeAudits) {
+    return { ok: false, error: "Cannot delete this key — it is still in use by queued or running audits." };
+  }
+
   await prisma.providerKey.delete({ where: { id: keyId } });
   if (row.isDefault) {
     const next = await prisma.providerKey.findFirst({

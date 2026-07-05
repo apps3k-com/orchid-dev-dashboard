@@ -105,11 +105,19 @@ export async function runAudit(auditId: string): Promise<void> {
       throw new Error(`No pricing configured for model ${audit.model} — cannot enforce the cost cap.`);
     }
 
-    // Use the key chosen for this run (falling back to the provider default for pre-multikey audits).
-    const apiKey =
-      (audit.providerKeyId ? await getDecryptedProviderKeyById(audit.providerKeyId) : null) ??
-      (await getDecryptedProviderKey("anthropic"));
-    if (!apiKey) throw new Error("No Anthropic key configured.");
+    // Use the key recorded for this run. Fall back to provider default only for legacy (pre-multikey) rows.
+    let apiKey: string | null = null;
+    if (audit.providerKeyId) {
+      // A specific key was chosen; it must still exist (fail if removed instead of silently switching credentials).
+      apiKey = await getDecryptedProviderKeyById(audit.providerKeyId);
+      if (!apiKey) {
+        throw new Error(`Provider key ${audit.providerKeyId} no longer exists — cannot run this audit.`);
+      }
+    } else {
+      // Legacy audit (no providerKeyId): fall back to the current provider default.
+      apiKey = await getDecryptedProviderKey("anthropic");
+      if (!apiKey) throw new Error("No Anthropic key configured.");
+    }
 
     const { files, commitSha, omitted, truncated } = await collectAuditContext(audit.repo);
     if (truncated) {
