@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { statusVariant } from "@/lib/audit-ui";
+import { progressPct, statusVariant } from "@/lib/audit-ui";
 
 import { cancelBatch, confirmBatch, getBatchState, type BatchView } from "./actions";
 
@@ -196,8 +197,10 @@ export function BatchPanel({ batchId, onDone }: { batchId: string; onDone: () =>
               <AlertTitle>Running audits…</AlertTitle>
               <AlertDescription>
                 {view.progress.completed + view.progress.failed}/{view.progress.total} finished
+                {view.progress.failed > 0 ? ` · ${view.progress.failed} failed` : ""}
               </AlertDescription>
             </Alert>
+            <Progress value={progressPct(view.progress)} />
             <div className="max-h-96 overflow-y-auto rounded-md border">
               <Table>
                 <TableHeader>
@@ -211,8 +214,15 @@ export function BatchPanel({ batchId, onDone }: { batchId: string; onDone: () =>
                     .filter((item) => item.decision === "will_audit")
                     .map((item) => (
                       <TableRow key={item.repoId}>
-                        <TableCell className="font-medium">{item.nameWithOwner}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="font-medium">
+                          {item.nameWithOwner}
+                          {item.auditStatus === "failed" && item.auditError ? (
+                            <span className="mt-0.5 block text-xs break-words text-destructive">
+                              {item.auditError}
+                            </span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="text-right align-top">
                           <Badge variant={statusVariant(item.auditStatus ?? "pending")}>
                             {item.auditStatus ?? "pending"}
                           </Badge>
@@ -225,13 +235,37 @@ export function BatchPanel({ batchId, onDone }: { batchId: string; onDone: () =>
           </div>
         ) : view.status === "completed" ? (
           <>
-            <Alert>
+            <Alert variant={view.progress.failed > 0 ? "destructive" : "default"}>
               <AlertTitle>Batch complete</AlertTitle>
               <AlertDescription>
                 {view.progress.completed} succeeded · {view.progress.failed} failed
                 {view.skippedCount ? ` · ${view.skippedCount} skipped` : ""}
               </AlertDescription>
             </Alert>
+            {view.items.some((i) => i.auditStatus === "failed") ? (
+              <div className="max-h-72 overflow-y-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Failed repository</TableHead>
+                      <TableHead>Reason</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {view.items
+                      .filter((i) => i.auditStatus === "failed")
+                      .map((i) => (
+                        <TableRow key={i.repoId}>
+                          <TableCell className="align-top font-medium">{i.nameWithOwner}</TableCell>
+                          <TableCell className="text-xs break-words text-destructive">
+                            {i.auditError ?? "Unknown error"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : null}
             <DialogFooter>
               <Button onClick={onDone}>Close</Button>
             </DialogFooter>

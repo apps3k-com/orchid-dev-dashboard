@@ -42,6 +42,7 @@ export default async function AuditsPage() {
       findingCount: audit?.findings.length ?? 0,
       lastRun: audit ? audit.createdAt.toISOString() : null,
       usd: audit?.estimatedUsd ? Number(audit.estimatedUsd) : null,
+      error: audit?.error ?? null,
     };
   });
 
