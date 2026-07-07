@@ -4,7 +4,7 @@ import { prisma } from "@/server/db";
 import { countInputTokens, runAuditMessage } from "@/server/llm/anthropic";
 import { type AuditFindingResult, validateFindings } from "@/server/llm/audit-schema";
 import { type AuditFile, collectAuditContext } from "@/server/llm/context";
-import { getDecryptedProviderKey } from "@/server/llm/keys";
+import { getDecryptedProviderKey, getDecryptedProviderKeyById } from "@/server/llm/keys";
 import { MODEL_PRICING } from "@/server/llm/providers";
 import { briefError } from "@/server/log";
 
@@ -105,8 +105,19 @@ export async function runAudit(auditId: string): Promise<void> {
       throw new Error(`No pricing configured for model ${audit.model} — cannot enforce the cost cap.`);
     }
 
-    const apiKey = await getDecryptedProviderKey("anthropic");
-    if (!apiKey) throw new Error("No Anthropic key configured.");
+    // Use the key recorded for this run. Fall back to provider default only for legacy (pre-multikey) rows.
+    let apiKey: string | null = null;
+    if (audit.providerKeyId) {
+      // A specific key was chosen; it must still exist (fail if removed instead of silently switching credentials).
+      apiKey = await getDecryptedProviderKeyById(audit.providerKeyId);
+      if (!apiKey) {
+        throw new Error(`Provider key ${audit.providerKeyId} no longer exists — cannot run this audit.`);
+      }
+    } else {
+      // Legacy audit (no providerKeyId): fall back to the current provider default.
+      apiKey = await getDecryptedProviderKey("anthropic");
+      if (!apiKey) throw new Error("No Anthropic key configured.");
+    }
 
     const { files, commitSha, omitted, truncated } = await collectAuditContext(audit.repo);
     if (truncated) {

@@ -7,8 +7,7 @@ import { prisma } from "@/server/db";
 import { enqueueAudit, enqueueBatchEstimate } from "@/server/jobs/enqueue";
 import { computeBatchProgress, isBatchComplete } from "@/server/llm/audit-batch";
 import { isLlmAdmin } from "@/server/llm/admin";
-import { getProviderKeySummaries } from "@/server/llm/keys";
-import { PROVIDERS } from "@/server/llm/providers";
+import { getProviderDefaultModel, getProviderSummaries } from "@/server/llm/keys";
 import { briefError } from "@/server/log";
 
 type Gate = { ok: true; login: string } | { ok: false; message: string };
@@ -18,8 +17,8 @@ async function auditGate(): Promise<Gate> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Not signed in." };
   if (!isLlmAdmin(user.login)) return { ok: false, message: "Only an LLM admin can run audits." };
-  const anthropic = (await getProviderKeySummaries()).find((s) => s.provider === "anthropic");
-  if (!anthropic?.configured || (anthropic.status !== "valid" && anthropic.status !== "rate_limited")) {
+  const anthropic = (await getProviderSummaries()).find((s) => s.provider === "anthropic");
+  if (!anthropic?.usable) {
     return { ok: false, message: "Configure a valid Anthropic key in Settings → AI providers first." };
   }
   return { ok: true, login: user.login };
@@ -92,7 +91,13 @@ export async function confirmBatch(batchId: string): Promise<{ ok: boolean; mess
   if (batch.status === "running" || batch.status === "completed") return { ok: true, message: "Batch already confirmed." };
   if (batch.status !== "estimated") return { ok: false, message: "Batch is not ready to confirm." };
 
-  const model = PROVIDERS.anthropic.defaultModel;
+  const model = await getProviderDefaultModel("anthropic");
+  // Batch runs use the provider's default key (a per-run key picker is a single-repo concern).
+  const summary = (await getProviderSummaries()).find((s) => s.provider === "anthropic");
+  const usableKeys = (summary?.keys ?? []).filter(
+    (k) => k.status === "valid" || k.status === "rate_limited",
+  );
+  const batchKeyId = (usableKeys.find((k) => k.isDefault) ?? usableKeys[0])?.id ?? null;
   for (const item of batch.items) {
     const existing = await prisma.repoAudit.findFirst({
       where: { repoId: item.repoId, status: { in: ["pending", "running"] } },
@@ -102,7 +107,14 @@ export async function confirmBatch(batchId: string): Promise<{ ok: boolean; mess
     let auditId: string | null = null;
     try {
       const audit = await prisma.repoAudit.create({
-        data: { repoId: item.repoId, provider: "anthropic", model, status: "pending", triggeredByLogin: gate.login },
+        data: {
+          repoId: item.repoId,
+          provider: "anthropic",
+          model,
+          providerKeyId: batchKeyId,
+          status: "pending",
+          triggeredByLogin: gate.login,
+        },
       });
       auditId = audit.id;
       await prisma.auditBatchItem.update({ where: { id: item.id }, data: { auditId: audit.id } });

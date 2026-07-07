@@ -3,7 +3,6 @@
 import { useActionState, useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -13,33 +12,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { saveProviderKeyAction, type SaveKeyState } from "@/app/(app)/settings/ai-providers/actions";
+import {
+  saveProviderSettingsAction,
+  type ProviderActionState,
+} from "@/app/(app)/settings/ai-providers/actions";
 
-/** Initial inline result state before the first save attempt. */
-const INITIAL: SaveKeyState = { ok: false, message: "" };
+/** Initial inline result state before the first save. */
+const INITIAL: ProviderActionState = { ok: false, message: "" };
 
-/** Set or replace a provider's API key (default model + key); the action validates before saving. */
-export function ProviderKeyForm({
+/** Choose + save a provider's default model — independent of the keys (item 7). */
+export function ProviderSettingsForm({
   provider,
   models,
   defaultModel,
-  configured,
 }: {
   provider: string;
   models: string[];
   defaultModel: string;
-  configured: boolean;
 }) {
-  const [state, action, pending] = useActionState(saveProviderKeyAction, INITIAL);
+  const [state, action, pending] = useActionState(saveProviderSettingsAction, INITIAL);
   const [model, setModel] = useState(defaultModel);
   const modelId = useId();
-  const keyId = useId();
 
   return (
     <form action={action} className="flex flex-col gap-3">
       <input type="hidden" name="provider" value={provider} />
       <input type="hidden" name="model" value={model} />
-
       <div className="flex flex-col gap-2">
         <Label htmlFor={modelId}>Default model</Label>
         <Select value={model} onValueChange={setModel}>
@@ -57,26 +55,11 @@ export function ProviderKeyForm({
           </SelectContent>
         </Select>
       </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={keyId}>{configured ? "Replace API key" : "API key"}</Label>
-        <Input
-          id={keyId}
-          name="apiKey"
-          type="password"
-          placeholder="sk-ant-…"
-          autoComplete="off"
-          required
-        />
-      </div>
-
       <div>
         <Button type="submit" disabled={pending}>
-          {pending ? "Validating…" : configured ? "Replace key" : "Save key"}
+          {pending ? "Saving…" : "Save settings"}
         </Button>
       </div>
-
-      {/* Always-present live region; colored only once there is a message. */}
       <p
         role="status"
         aria-live="polite"

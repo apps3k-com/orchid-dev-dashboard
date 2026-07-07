@@ -22,7 +22,8 @@ vi.mock("@/server/db", () => ({
 }));
 vi.mock("@/server/auth/session", () => ({ getSessionUser: vi.fn() }));
 vi.mock("@/server/llm/keys", () => ({
-  getProviderKeySummaries: vi.fn(),
+  getProviderSummaries: vi.fn(),
+  getProviderDefaultModel: vi.fn(),
   getDecryptedProviderKey: vi.fn(),
 }));
 vi.mock("@/server/jobs/enqueue", () => ({
@@ -34,13 +35,14 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { getSessionUser } from "@/server/auth/session";
 import { prisma } from "@/server/db";
 import { enqueueAudit, enqueueBatchEstimate } from "@/server/jobs/enqueue";
-import { getProviderKeySummaries } from "@/server/llm/keys";
+import { getProviderDefaultModel, getProviderSummaries } from "@/server/llm/keys";
 
 import { cancelBatch, confirmBatch, getBatchState, startBatchEstimate } from "./actions";
 
 // Typed handles to the mocked functions, so calls/return values read cleanly in each test.
 const mockGetSessionUser = vi.mocked(getSessionUser);
-const mockGetKeySummaries = vi.mocked(getProviderKeySummaries);
+const mockGetSummaries = vi.mocked(getProviderSummaries);
+const mockGetDefaultModel = vi.mocked(getProviderDefaultModel);
 const mockEnqueueAudit = vi.mocked(enqueueAudit);
 const mockEnqueueBatchEstimate = vi.mocked(enqueueBatchEstimate);
 const db = vi.mocked(prisma, true);
@@ -52,14 +54,19 @@ function signInAs(login: string | null): void {
   mockGetSessionUser.mockResolvedValue(login ? ({ login } as never) : null);
 }
 
-/** Configure the Anthropic key summary the gate inspects. */
+/** Configure the Anthropic provider summary the gate inspects (usable = has a valid/rate_limited key). */
 function keyStatus(status: string | "none"): void {
   if (status === "none") {
-    mockGetKeySummaries.mockResolvedValue([]);
+    mockGetSummaries.mockResolvedValue([]);
     return;
   }
-  mockGetKeySummaries.mockResolvedValue([
-    { provider: "anthropic", configured: true, status } as never,
+  const usable = status === "valid" || status === "rate_limited";
+  mockGetSummaries.mockResolvedValue([
+    {
+      provider: "anthropic",
+      usable,
+      keys: [{ id: "key_1", label: "default", maskedHint: "…abcd", status, isDefault: true }],
+    } as never,
   ]);
 }
 
@@ -70,6 +77,7 @@ beforeEach(() => {
   vi.stubEnv("ORCHID_LLM_ADMINS", ADMIN_LOGIN);
   signInAs(ADMIN_LOGIN);
   keyStatus("valid");
+  mockGetDefaultModel.mockResolvedValue("claude-sonnet-4-6");
   // The actions chain `.catch()` on these writes (best-effort failure cleanup / lazy transitions),
   // so the mocks must resolve to a thenable even when a test doesn't assert on them.
   db.auditBatch.update.mockResolvedValue({} as never);

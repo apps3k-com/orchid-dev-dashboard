@@ -220,17 +220,32 @@ model SyncState {
 
 /// A BYOK LLM provider credential for the agent/hook auditor. The key is stored ENCRYPTED at rest
 /// (AES-256-GCM via crypto.ts), exactly like AppConfig.*Enc — only the last-4 hint is ever shown.
-/// Instance-wide in v1 (one row per provider; per-user keys are a later phase). APP (config).
+/// Multiple labelled keys per provider; one is the default, and an audit can pick which to use. APP (config).
 model ProviderKey {
   id              String    @id @default(cuid())
-  provider        String    @unique // "anthropic" (openai/cursor are later phases)
+  provider        String // "anthropic" (openai/cursor are later phases)
+  label           String    @default("default") // user-facing name; unique per provider
   keyEnc          String // encryptSecret(apiKey) — iv:tag:ciphertext, base64
   maskedHint      String    @db.VarChar(8) // last-4 of the key only ("…XXXX") — capped so the column can never hold key material
-  defaultModel    String? // selected model id (from the provider's config map)
-  status          String    @default("unchecked") // unchecked | valid | invalid
+  status          String    @default("unchecked") // unchecked | valid | invalid | rate_limited
+  isDefault       Boolean   @default(false) // used unless another key is chosen at audit time; DB enforces one default per provider via partial unique index
   lastValidatedAt DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@unique([provider, label])
+  @@index([provider])
+  // Note: partial unique index (provider WHERE isDefault=true) is in the migration SQL; Prisma doesn't natively support it
+}
+
+/// Instance-wide settings for a BYOK provider: the default model used for audits (kept separate from
+/// the key so the model can change without replacing a key, and vice versa). APP (config).
+model ProviderSettings {
+  id           String   @id @default(cuid())
+  provider     String   @unique // "anthropic"
+  defaultModel String // selected model id from the provider's config map
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 /// One LLM-powered audit run of a repo's agent + hook configuration (BYOK auditor). APP/audit.
@@ -240,6 +255,7 @@ model RepoAudit {
   repoId           String
   provider         String // "anthropic"
   model            String // e.g. "claude-sonnet-4-6"
+  providerKeyId    String? // which ProviderKey ran this audit (traceability; null for pre-multikey runs)
   status           String          @default("pending") // pending | running | completed | failed
   commitSha        String? // default-branch head the audit ran against (reproducibility)
   score            Int? // overall config-health score 0..100
