@@ -79,9 +79,23 @@ export type HookDiffResult = { status: string; templateText: string; repoText: s
 
 /** Server action: load a hook file's template + repo content so the drift can be rendered as a diff.
  *  Read-only + signed-in gated; returns null if the state is gone or GitHub is unreachable. */
+async function assertRepoOrgMember(repoId: string, login: string) {
+  const repo = await prisma.repo.findUnique({ where: { id: repoId } });
+  if (!repo) throw new Error("Repository not found.");
+  const org = await prisma.org.findUnique({ where: { id: repo.orgId } });
+  if (!org) throw new Error("Organization not found.");
+  if (!(await isOrgMember(org, login))) throw new Error(`You are not a member of ${org.login}.`);
+  return repo;
+}
+
 export async function getHookDiff(repoId: string, path: string): Promise<HookDiffResult> {
   const user = await getSessionUser();
   if (!user) return null;
+  try {
+    await assertRepoOrgMember(repoId, user.login);
+  } catch {
+    return null;
+  }
   const state = await prisma.repoHookState.findUnique({
     where: { repoId_path: { repoId, path } },
     include: { repo: { include: { org: true } } },
@@ -109,6 +123,11 @@ export async function acknowledgeHookDrift(
 ): Promise<{ ok: boolean; message: string }> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Not signed in." };
+  try {
+    await assertRepoOrgMember(repoId, user.login);
+  } catch (error) {
+    return { ok: false, message: (error as Error).message };
+  }
   const state = await prisma.repoHookState.findUnique({ where: { repoId_path: { repoId, path } } });
   if (!state) return { ok: false, message: "Hook file not found." };
   await prisma.repoHookState.update({
@@ -131,6 +150,11 @@ export async function unacknowledgeHookDrift(
 ): Promise<{ ok: boolean; message: string }> {
   const user = await getSessionUser();
   if (!user) return { ok: false, message: "Not signed in." };
+  try {
+    await assertRepoOrgMember(repoId, user.login);
+  } catch (error) {
+    return { ok: false, message: (error as Error).message };
+  }
   await prisma.repoHookState.updateMany({
     where: { repoId, path },
     data: {
