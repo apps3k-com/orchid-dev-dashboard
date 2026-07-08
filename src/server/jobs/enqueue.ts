@@ -21,6 +21,26 @@ export async function enqueueAudit(auditId: string): Promise<boolean> {
   return true;
 }
 
+/** Enqueue an `ingest:github` job for one verified webhook delivery. The delivery GUID is the
+ *  `jobKey`, so a redelivered webhook coalesces onto the pending job instead of queueing twice
+ *  (processing is additionally idempotent via the Signal `dedupeKey`). Returns `true` when
+ *  enqueued, `false` when there is no DB configured. */
+export async function enqueueIngestGithub(
+  deliveryId: string,
+  event: string,
+  payload: unknown,
+): Promise<boolean> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) return false;
+  await quickAddJob(
+    { connectionString },
+    "ingest:github",
+    { deliveryId, event, payload },
+    { jobKey: `ingest:github:${deliveryId}` },
+  );
+  return true;
+}
+
 /** Enqueue an `audit:estimate` job for a pending AuditBatch. Coalesced per batch via `jobKey`.
  *  Returns `true` when enqueued, `false` when there is no DB configured. */
 export async function enqueueBatchEstimate(batchId: string): Promise<boolean> {

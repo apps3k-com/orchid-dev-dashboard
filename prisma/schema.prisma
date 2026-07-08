@@ -48,6 +48,7 @@ model Repo {
   auditBatchItems AuditBatchItem[]
   standards       RepoStandard[]
   modules         Module[]
+  signals         Signal[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
@@ -360,4 +361,26 @@ model AuditBatchItem {
 
   @@unique([batchId, repoId])
   @@index([batchId])
+}
+
+/// One normalized event on the fleet event spine (webhook push, reconciled by polling).
+/// Idempotent by `dedupeKey` — redeliveries and push+poll overlap upsert instead of duplicating. CACHE.
+model Signal {
+  id          String   @id @default(cuid())
+  source      String // github | coolify | sentry | grafana | uptime_kuma | inngest
+  kind        String // pr | issue | check | deploy | release | project_item
+  severity    String   @default("info") // info | warning | error
+  title       String
+  externalId  String
+  externalUrl String?
+  dedupeKey   String   @unique
+  payload     Json
+  repo        Repo?    @relation(fields: [repoId], references: [id], onDelete: SetNull)
+  repoId      String?
+  occurredAt  DateTime
+  receivedAt  DateTime @default(now())
+
+  @@index([source, kind])
+  @@index([repoId])
+  @@index([occurredAt])
 }
