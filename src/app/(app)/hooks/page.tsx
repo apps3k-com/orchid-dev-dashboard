@@ -1,10 +1,11 @@
 import { HooksTable, type HookRow } from "@/components/hooks-table";
 import { requireUser } from "@/server/auth/require";
 import { prisma } from "@/server/db";
+import { isAcknowledged } from "@/server/github/hooks";
 
 export const dynamic = "force-dynamic";
 
-type Counts = { match: number; outdated: number; missing: number; extra: number };
+type Counts = { match: number; outdated: number; missing: number; extra: number; confirmed: number };
 
 /** Cross-repo agent-hook drift overview: per repo, how its .claude/.codex files compare to the
  *  canonical template (matched / outdated / missing / extra). */
@@ -18,9 +19,12 @@ export default async function HooksPage() {
   for (const state of states) {
     const entry = byRepo.get(state.repo.id) ?? {
       repo: state.repo.nameWithOwner,
-      counts: { match: 0, outdated: 0, missing: 0, extra: 0 },
+      counts: { match: 0, outdated: 0, missing: 0, extra: 0, confirmed: 0 },
     };
     if (state.status in entry.counts) entry.counts[state.status as keyof Counts] += 1;
+    if ((state.status === "outdated" || state.status === "missing") && isAcknowledged(state)) {
+      entry.counts.confirmed += 1;
+    }
     byRepo.set(state.repo.id, entry);
   }
 
@@ -28,9 +32,9 @@ export default async function HooksPage() {
     .map(([id, { repo, counts }]) => ({
       id,
       repo,
-      // Drift = a sync gap with the template (outdated/missing). `extra` files are repo-specific
-      // additions the template doesn't carry, surfaced as a count but not counted as drift.
-      status: counts.outdated + counts.missing === 0 ? "in sync" : "drift",
+      // Drift = an UNCONFIRMED sync gap (outdated/missing minus confirmed customizations). `extra`
+      // files are repo-specific additions the template doesn't carry — surfaced but not drift.
+      status: counts.outdated + counts.missing - counts.confirmed === 0 ? "in sync" : "drift",
       ...counts,
     }))
     .sort((a, b) => a.repo.localeCompare(b.repo));

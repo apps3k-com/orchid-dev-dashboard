@@ -166,6 +166,12 @@ model RepoHookState {
   status      String // match | outdated | missing | extra
   repoSha     String?
   templateSha String?
+  // A confirmed repo-specific customization is tied to the exact SHA pair it was confirmed for, so
+  // any later change to the repo or template file re-flags the drift. Preserved across syncs.
+  acknowledgedRepoSha     String?
+  acknowledgedTemplateSha String?
+  acknowledgedBy          String?
+  acknowledgedAt          DateTime?
   syncedAt    DateTime @default(now())
 
   @@unique([repoId, path])

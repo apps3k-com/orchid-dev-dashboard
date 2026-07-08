@@ -39,6 +39,23 @@ export function classifyHooks(
   });
 }
 
+/** Whether a file's drift has been confirmed as an intentional repo-specific customization. True only
+ *  when the confirmed SHA pair still matches the current one, so any later change to the repo OR the
+ *  template file automatically re-flags the drift. Pure. */
+export function isAcknowledged(state: {
+  repoSha: string | null;
+  templateSha: string | null;
+  acknowledgedRepoSha: string | null;
+  acknowledgedTemplateSha: string | null;
+}): boolean {
+  return (
+    state.acknowledgedTemplateSha === state.templateSha &&
+    state.acknowledgedRepoSha === state.repoSha &&
+    // Guard the all-null case (an unconfirmed `match`/absent row) from reading as acknowledged.
+    (state.acknowledgedTemplateSha !== null || state.acknowledgedRepoSha !== null)
+  );
+}
+
 /** Map of agent-hook file path -> blob SHA on a ref (recursive tree, filtered to .claude/.codex). */
 async function getHookTree(
   octokit: InstallationOctokit,
@@ -183,4 +200,24 @@ export async function fetchTemplateHookBlobs(
     out.push({ path: file.path, content });
   }
   return out;
+}
+
+/** Fetch a single blob's UTF-8 text from a managed repo by its git blob SHA — for the drift diff.
+ *  Returns "" when there is no SHA (e.g. a `missing` file absent from the repo). Server-only. */
+export async function fetchRepoHookBlob(
+  repo: { nameWithOwner: string; org: { installationId: number | null } },
+  sha: string | null,
+): Promise<string> {
+  if (!sha || !repo.org.installationId) return "";
+  const [owner, name] = repo.nameWithOwner.split("/");
+  if (!owner || !name) return "";
+  const octokit = await getInstallationOctokit(repo.org.installationId);
+  const res = await octokit.request("GET /repos/{owner}/{repo}/git/blobs/{file_sha}", {
+    owner,
+    repo: name,
+    file_sha: sha,
+  });
+  return res.data.encoding === "base64"
+    ? Buffer.from(res.data.content, "base64").toString("utf8")
+    : res.data.content;
 }
