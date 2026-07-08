@@ -30,7 +30,7 @@ export interface GithubSignalInput {
 
 /** Cache write-through instruction derived from a `pull_request` webhook payload. */
 export type PullCacheUpdate =
-  | { op: "delete"; nodeId: string }
+  | { op: "delete"; nodeId: string; ghUpdatedAt: Date | null }
   | {
       op: "upsert";
       nodeId: string;
@@ -249,7 +249,9 @@ export function mapGithubEvent(
 export function mapPullRequestCacheUpdate(payload: WebhookPayload): PullCacheUpdate | null {
   const pr = payload?.pull_request;
   if (!pr?.node_id) return null;
-  if (pr.state === "closed") return { op: "delete", nodeId: pr.node_id };
+  if (pr.state === "closed") {
+    return { op: "delete", nodeId: pr.node_id, ghUpdatedAt: toDate(pr.updated_at) };
+  }
   const repo = repoFullName(payload);
   if (!repo || typeof pr.number !== "number") return null;
   return {
@@ -335,19 +337,49 @@ export async function processGithubEvent(job: {
   }
 }
 
-/** Apply a derived open-PR cache instruction (delete on close, upsert otherwise). */
+/**
+ * Apply a derived open-PR cache instruction (delete on close, upsert otherwise) with a
+ * staleness guard: worker `concurrency: 2` can process two deliveries for the same PR out of
+ * order, so writes only apply when the incoming `ghUpdatedAt` is not older than the cached one
+ * (conditional `updateMany`/`deleteMany` — guarded in the WHERE clause, not read-then-write).
+ * Rows without a cached timestamp always accept the write.
+ */
 async function applyPullCacheUpdate(update: PullCacheUpdate | null): Promise<void> {
   if (!update) return;
   if (update.op === "delete") {
-    await prisma.pullRequest.deleteMany({ where: { nodeId: update.nodeId } });
+    await prisma.pullRequest.deleteMany({
+      where: {
+        nodeId: update.nodeId,
+        // A stale "closed" event must not delete a row a newer event already refreshed.
+        ...(update.ghUpdatedAt
+          ? { OR: [{ ghUpdatedAt: null }, { ghUpdatedAt: { lte: update.ghUpdatedAt } }] }
+          : {}),
+      },
+    });
     return;
   }
   const repo = await prisma.repo.findUnique({ where: { nameWithOwner: update.repoFullName } });
   if (!repo) return; // repo not cached yet — the next syncRepos run picks it up
   const fields = { repoId: repo.id, ...update.fields, syncedAt: new Date() };
-  await prisma.pullRequest.upsert({
-    where: { nodeId: update.nodeId },
-    create: { nodeId: update.nodeId, ...fields },
-    update: fields,
+  const incoming = update.fields.ghUpdatedAt;
+  const updated = await prisma.pullRequest.updateMany({
+    where: {
+      nodeId: update.nodeId,
+      ...(incoming ? { OR: [{ ghUpdatedAt: null }, { ghUpdatedAt: { lte: incoming } }] } : {}),
+    },
+    data: fields,
   });
+  if (updated.count > 0) return;
+  // Nothing updated: either a newer state is cached (done) or the row doesn't exist yet.
+  const exists = await prisma.pullRequest.findUnique({
+    where: { nodeId: update.nodeId },
+    select: { id: true },
+  });
+  if (exists) return;
+  try {
+    await prisma.pullRequest.create({ data: { nodeId: update.nodeId, ...fields } });
+  } catch {
+    // Unique-violation race: a concurrent job created the row (with its own, possibly newer,
+    // state) between our check and create — that writer's guard already decided; nothing to do.
+  }
 }

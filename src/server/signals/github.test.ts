@@ -132,13 +132,26 @@ describe("mapPullRequestCacheUpdate", () => {
     });
   });
 
-  it("drops a closed PR from the open-PR cache", () => {
+  it("drops a closed PR from the open-PR cache, carrying the event time for the staleness guard", () => {
     const u = mapPullRequestCacheUpdate({
       ...openPayload,
       action: "closed",
       pull_request: { ...openPayload.pull_request, state: "closed" },
     });
-    expect(u).toEqual({ op: "delete", nodeId: "PR_1" });
+    expect(u).toEqual({
+      op: "delete",
+      nodeId: "PR_1",
+      ghUpdatedAt: new Date("2026-07-08T10:00:00Z"),
+    });
+  });
+
+  it("tolerates a closed PR without a timestamp (guard degrades to unconditional)", () => {
+    const u = mapPullRequestCacheUpdate({
+      action: "closed",
+      repository: REPO,
+      pull_request: { node_id: "PR_1", state: "closed" },
+    });
+    expect(u).toEqual({ op: "delete", nodeId: "PR_1", ghUpdatedAt: null });
   });
 
   it("returns null without a node_id", () => {

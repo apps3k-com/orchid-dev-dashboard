@@ -34,6 +34,9 @@ export async function POST(req: Request): Promise<Response> {
     return new Response("Invalid JSON payload.", { status: 400 });
   }
 
-  await enqueueIngestGithub(deliveryId, event, payload);
+  // A 5xx makes GitHub retry the delivery instead of silently dropping a verified event
+  // (the webhook secret can come purely from env, so the DB may be absent independently).
+  const enqueued = await enqueueIngestGithub(deliveryId, event, payload);
+  if (!enqueued) return new Response("Ingest queue is not configured.", { status: 503 });
   return Response.json({ ok: true });
 }
