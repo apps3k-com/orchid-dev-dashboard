@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.2.0](https://github.com/apps3k-com/orchid-dev-dashboard/compare/v1.1.1...v1.2.0) (2026-07-08)
+
+
+### Added
+
+* **ai-providers:** separate model settings from keys + multiple keys per provider ([37dd2fb](https://github.com/apps3k-com/orchid-dev-dashboard/commit/37dd2fb39dd6c4191a07fc10071e3759e3dba2bc))
+* **ai-providers:** split model settings from keys + multiple keys per provider ([8cc9e0f](https://github.com/apps3k-com/orchid-dev-dashboard/commit/8cc9e0f17d7f45411a00faa959fa6108d2f1318d))
+* **audits:** no default selection, surface failure detail, live progress bar ([f30255e](https://github.com/apps3k-com/orchid-dev-dashboard/commit/f30255ebc28914dac77dce247212a926b8d5e345))
+* **audits:** no default selection, surface failure detail, live progress bar ([1427a81](https://github.com/apps3k-com/orchid-dev-dashboard/commit/1427a81894abacf32b6264c613b860f83a50ad7b))
+* **hooks:** user-visible diff + confirmable drift ([bead7ff](https://github.com/apps3k-com/orchid-dev-dashboard/commit/bead7ff99bfb481d8969f3ac735d8e27acf9c3cf))
+* **hooks:** user-visible diff + confirmable drift ([ca562bf](https://github.com/apps3k-com/orchid-dev-dashboard/commit/ca562bfb11a38e27fe911e94f42fe0e8fcc5f158))
+* **modules:** DataTable with description/status + assigned-issue counts ([6d91b9e](https://github.com/apps3k-com/orchid-dev-dashboard/commit/6d91b9e7aaf05e4ea922156593a21fa1e4e48f83))
+* **modules:** DataTable with description/status + assigned-issue counts ([b35886c](https://github.com/apps3k-com/orchid-dev-dashboard/commit/b35886c0ad1ed77527dca9128fd8163f9d28d863))
+* **pulls:** PR-detail modal with live timeline ([eb23aec](https://github.com/apps3k-com/orchid-dev-dashboard/commit/eb23aec507436ff26540794dae0a011860f798b1))
+* **pulls:** PR-detail modal with live timeline ([e71c501](https://github.com/apps3k-com/orchid-dev-dashboard/commit/e71c5019264de699cada80c04df86fc898f1863e))
+
+
+### Fixed
+
+* apply CodeRabbit auto-fixes ([4e38643](https://github.com/apps3k-com/orchid-dev-dashboard/commit/4e38643ee796587b34940c5304ca93c81eba2dea))
+* **github:** distinguish absent modules.yaml from read failures ([4f4f183](https://github.com/apps3k-com/orchid-dev-dashboard/commit/4f4f183b6254e520288434fd0857e15ecd0b72b4))
+* **github:** read modules.yaml via GraphQL to silence a spurious 404 ([ba37f81](https://github.com/apps3k-com/orchid-dev-dashboard/commit/ba37f8193d5b1fce4367ebfe7707cdde8d28b959))
+* **github:** read modules.yaml via GraphQL to silence a spurious 404 ([0a0aa66](https://github.com/apps3k-com/orchid-dev-dashboard/commit/0a0aa663760a4641b5e4b729c63699f2982928c5))
+* **modules:** gate mutations on org membership + preserve form inputs on failed submit ([b494ffa](https://github.com/apps3k-com/orchid-dev-dashboard/commit/b494ffa2576da96baed5f9b5d19ba8280ff9ba67))
+* **pulls:** address CodeRabbit review on [#92](https://github.com/apps3k-com/orchid-dev-dashboard/issues/92) ([edce250](https://github.com/apps3k-com/orchid-dev-dashboard/commit/edce250065d2a93729a01511aeea1df9295f53b9))
+
 ## [1.1.1](https://github.com/apps3k-com/orchid-dev-dashboard/compare/v1.1.0...v1.1.1) (2026-07-03)
 
 
