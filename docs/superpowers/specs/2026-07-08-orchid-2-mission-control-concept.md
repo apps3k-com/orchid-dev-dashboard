@@ -18,11 +18,12 @@ MCP / spend view (verified by inventory).
 
 The 2026 solo-dev bottleneck has moved: **not code generation, but the human as the
 review/decision gate for N parallel agents** across ~10 repos. Research shows a clear market
-gap: there are local execution tools (Conductor, Vibe Kanban†, claude-squad), single-vendor
-clouds (GitHub Agent HQ/Copilot, Claude Code Web, Factory), review (CodeRabbit), deploy
-(Coolify), MCP governance (Obot) — but **nobody connects plan → dispatch → review → deploy →
-monitor cross-vendor, self-hosted, and GitHub-native**. Two indie attempts (Terragon,
-Bloop/Vibe Kanban) shut down in 2026; the niche is open, not crowded.
+gap: there are local execution tools (Conductor, Vibe Kanban (discontinued 2026, see below),
+claude-squad), single-vendor clouds (GitHub Agent HQ/Copilot, Claude Code Web, Factory),
+review (CodeRabbit), deploy (Coolify), MCP governance (Obot) — but **nobody connects plan →
+dispatch → review → deploy → monitor cross-vendor, self-hosted, and GitHub-native**. Two
+indie attempts (Terragon, Bloop/Vibe Kanban) shut down in 2026; the niche is open, not
+crowded.
 
 **Positioning: "Coolify for AI agents" — the self-hosted, GitHub-native mission control for
 solo devs (later: small teams).**
@@ -31,7 +32,7 @@ solo devs (later: small teams).**
 
 | # | Pain (evidenced) | Orchid's answer | Pillar |
 |---|---|---|---|
-| 1 | Review/merge gate: 1 human ⇐ N agents | Decision Queue: everything decision-ready in one place, one-click actions | P1 |
+| 1 | Review/merge gate: one human gates N agents | Decision Queue: everything decision-ready in one place, one-click actions | P1 |
 | 2 | Lost overview across repos/agents/PRs | Command Center + cross-vendor AgentTask tracking | P1/P3 |
 | 3 | Worktree/session chaos under parallelism | Tier 1: cloud dispatch (no local chaos); tier 2 runner later | P3 |
 | 4/5 | Context/memory fragmentation, rework | Spec fabric + AGENTS.md governance (hooks-drift feature extended) | P2/P5 |
@@ -60,7 +61,8 @@ API-capable). Orchid owns what the API does **not** expose (verified): **views**
 API!), roadmap rendering, workflow automation, analytics. Concretely:
 
 - **Spec sync**: spec files in the repo (spec-kit compatible, `specs/`) → Orchid generates an
-  epic + sub-issues via the existing PR writeback + Issues API; drift detection spec ↔ issues.
+  epic + sub-issues via the existing PR writeback (`proposeFiles`) plus **net-new** Issues-API
+  integration (no Issues-API calls exist in `src/` today); drift detection spec ↔ issues.
 - **Own boards/roadmap** over Projects data (extend the existing `/projects/[id]` board);
   cycle time/velocity from `projects_v2_item` webhooks (payload carries old + new field values).
 - **Agent-ready-issue check**: short, well-scoped issues with context hints (research finding)
@@ -169,10 +171,15 @@ compliance, MCP, spend) · **Settings** (automations, products, AI providers, in
 
 ## Roadmap (phases = independently shippable increments; each phase = several small PRs with the CodeRabbit loop)
 
+Phase↔pillar mapping (deliberately NOT sequential — phases follow the owner's priorities, not
+the pillar numbers): **A → P1** (foundation) · **B → P3** (priority 1) · **C → P2**
+(priority 2) · **D → P4** (priority 3) · **E → P5** (deferred).
+
 **Phase A — event spine + Command Center v1** *(foundation for priority 1)*
 Activate GitHub App webhooks (pull_request, issues, check_suite, deployment_status, release,
-projects_v2_item) → ingest route + Signal model → Decision Queue v1 from GitHub signals +
-existing audits (CodeRabbit threads via GraphQL `reviewThreads`). New home page.
+projects_v2_item) → ingest route + Signal model → Decision Queue v1 fed by GitHub signals,
+the existing audit findings, and a **net-new** CodeRabbit-thread fetch (GraphQL
+`reviewThreads` — nothing in `src/` queries review threads today). New home page.
 *Immediate value: real-time instead of 5-minute polling, one "what needs me" feed.*
 
 **Phase B — agent operations v1** *(priority 1)*
@@ -205,7 +212,8 @@ admins, setup docs / one-line install — the basis for an OSS-release/product d
   phase. Never rebuild what Grafana/GitHub already render — aggregate + deep-link.
 - **Security**: more secrets (Coolify/Sentry/Obot tokens) → store encrypted (pattern exists),
   webhook HMAC everywhere, agent dispatch never auto-merges, pin claude-code-action.
-- **Cost**: agent dispatch creates real LLM cost → budget guards like the audit (`MAX_USD`).
+- **Cost**: agent dispatch creates real LLM cost → budget guards like the audit's
+  `ORCHID_AUDIT_MAX_USD`.
 
 ## Verification (per phase)
 
