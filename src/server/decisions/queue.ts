@@ -42,6 +42,9 @@ const PRIORITY: Record<DecisionKind, number> = {
 // large org can never starve another org out of its thread checks.
 export const MAX_THREAD_CHECKS_PER_ORG = 15;
 
+// Abort a single review-thread lookup after this long so one hung request only fails its item.
+const THREAD_LOOKUP_TIMEOUT_MS = 10_000;
+
 /**
  * Group open PRs by their org's installation id, capped per org (pure — unit-tested). PRs of
  * orgs without an installation are skipped; the cap applies AFTER grouping so every installed
@@ -65,7 +68,8 @@ export function groupPullsByInstallation<T extends { repo: { org: { installation
 
 /**
  * Classify a cached open PR for the Decision Queue (pure — unit-tested): failing checks beat
- * everything; "ready to merge" requires approved + green + non-draft + not conflicting.
+ * everything; "ready to merge" requires approved + green + non-draft + confirmed MERGEABLE
+ * (UNKNOWN means GitHub is still computing mergeability — not ready yet; the poller refreshes it).
  * Returns null when the PR needs nothing from the human right now.
  */
 export function classifyPull(pr: {
@@ -79,7 +83,7 @@ export function classifyPull(pr: {
     !pr.isDraft &&
     pr.reviewDecision === "APPROVED" &&
     pr.checksState === "SUCCESS" &&
-    pr.mergeable !== "CONFLICTING"
+    pr.mergeable === "MERGEABLE"
   ) {
     return "ready_to_merge";
   }
@@ -195,6 +199,7 @@ export async function getDecisionQueue(): Promise<DecisionItem[]> {
           owner,
           name,
           number: pr.number,
+          request: { signal: AbortSignal.timeout(THREAD_LOOKUP_TIMEOUT_MS) },
         });
         return { pr, unresolved: countUnresolvedCodeRabbitThreads(res) };
       }),

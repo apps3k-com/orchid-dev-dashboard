@@ -27,11 +27,14 @@ describe("classifyPull", () => {
     ).toBe("failing_checks");
   });
 
-  it("ready-to-merge requires approved + green + non-draft + not conflicting", () => {
+  it("ready-to-merge requires approved + green + non-draft + confirmed MERGEABLE", () => {
     const ready = { ...basePull, checksState: "SUCCESS", reviewDecision: "APPROVED" };
     expect(classifyPull(ready)).toBe("ready_to_merge");
     expect(classifyPull({ ...ready, isDraft: true })).toBeNull();
     expect(classifyPull({ ...ready, mergeable: "CONFLICTING" })).toBeNull();
+    // UNKNOWN = GitHub is still computing mergeability; a null cache value is equally not ready.
+    expect(classifyPull({ ...ready, mergeable: "UNKNOWN" })).toBeNull();
+    expect(classifyPull({ ...ready, mergeable: null })).toBeNull();
     expect(classifyPull({ ...ready, reviewDecision: "CHANGES_REQUESTED" })).toBeNull();
     expect(classifyPull({ ...ready, checksState: "PENDING" })).toBeNull();
   });
