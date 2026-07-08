@@ -4,6 +4,7 @@ import {
   buildPullItem,
   classifyPull,
   countUnresolvedCodeRabbitThreads,
+  groupPullsByInstallation,
   prioritizeDecisions,
 } from "./queue";
 
@@ -124,5 +125,26 @@ describe("countUnresolvedCodeRabbitThreads", () => {
   it("is 0 for missing repository/PR nodes", () => {
     expect(countUnresolvedCodeRabbitThreads({ repository: null })).toBe(0);
     expect(countUnresolvedCodeRabbitThreads({ repository: { pullRequest: null } })).toBe(0);
+  });
+});
+
+describe("groupPullsByInstallation", () => {
+  const pull = (installationId: number | null) => ({ repo: { org: { installationId } } });
+
+  it("caps per org AFTER grouping so a large org cannot starve another", () => {
+    const pulls = [
+      ...Array.from({ length: 40 }, () => pull(1)), // org 1 dominates the list
+      pull(2),
+      pull(2),
+    ];
+    const grouped = groupPullsByInstallation(pulls, 15);
+    expect(grouped.get(1)).toHaveLength(15);
+    expect(grouped.get(2)).toHaveLength(2); // still fully included despite org 1's volume
+  });
+
+  it("skips PRs of orgs without an installation", () => {
+    const grouped = groupPullsByInstallation([pull(null), pull(3)], 15);
+    expect(grouped.has(3)).toBe(true);
+    expect(grouped.size).toBe(1);
   });
 });

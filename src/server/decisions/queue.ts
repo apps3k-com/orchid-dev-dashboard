@@ -38,8 +38,30 @@ const PRIORITY: Record<DecisionKind, number> = {
   batch_failed: 6,
 };
 
-// Bound the live review-thread lookups per queue build (solo fleets stay far below this).
-const MAX_THREAD_CHECKS = 30;
+// Bound the live review-thread lookups PER INSTALLATION per queue build — a per-org cap, so a
+// large org can never starve another org out of its thread checks.
+export const MAX_THREAD_CHECKS_PER_ORG = 15;
+
+/**
+ * Group open PRs by their org's installation id, capped per org (pure — unit-tested). PRs of
+ * orgs without an installation are skipped; the cap applies AFTER grouping so every installed
+ * org gets checked even when one org dominates the open-PR list.
+ */
+export function groupPullsByInstallation<T extends { repo: { org: { installationId: number | null } } }>(
+  pulls: T[],
+  maxPerOrg: number,
+): Map<number, T[]> {
+  const byOrg = new Map<number, T[]>();
+  for (const pr of pulls) {
+    const installationId = pr.repo.org.installationId;
+    if (!installationId) continue;
+    const list = byOrg.get(installationId) ?? [];
+    if (list.length >= maxPerOrg) continue;
+    list.push(pr);
+    byOrg.set(installationId, list);
+  }
+  return byOrg;
+}
 
 /**
  * Classify a cached open PR for the Decision Queue (pure — unit-tested): failing checks beat
@@ -154,41 +176,50 @@ export async function getDecisionQueue(): Promise<DecisionItem[]> {
     if (kind) items.push(buildPullItem(pr, pr.repo.nameWithOwner, kind));
   }
 
-  // Live CodeRabbit-thread check, grouped per org; an org's first failure skips its remaining
-  // PRs (degrade gracefully instead of hammering a broken installation).
-  const byOrg = new Map<number, typeof pulls>();
-  for (const pr of pulls.slice(0, MAX_THREAD_CHECKS)) {
-    const installationId = pr.repo.org.installationId;
-    if (!installationId) continue;
-    byOrg.set(installationId, [...(byOrg.get(installationId) ?? []), pr]);
-  }
+  // Live CodeRabbit-thread check, capped per installation and parallelized within each org;
+  // failures degrade per PR/org (fail-open) instead of blanking the queue.
+  const byOrg = groupPullsByInstallation(pulls, MAX_THREAD_CHECKS_PER_ORG);
   for (const [installationId, orgPulls] of byOrg) {
+    let octokit: Awaited<ReturnType<typeof getInstallationOctokit>>;
     try {
-      const octokit = await getInstallationOctokit(installationId);
-      for (const pr of orgPulls) {
+      octokit = await getInstallationOctokit(installationId);
+    } catch (error) {
+      console.warn("decision queue: installation token failed", briefError(error));
+      continue;
+    }
+    const results = await Promise.allSettled(
+      orgPulls.map(async (pr) => {
         const [owner, name] = pr.repo.nameWithOwner.split("/");
-        if (!owner || !name) continue;
+        if (!owner || !name) return null;
         const res = await octokit.graphql<ThreadsResult>(THREADS_QUERY, {
           owner,
           name,
           number: pr.number,
         });
-        const unresolved = countUnresolvedCodeRabbitThreads(res);
-        if (unresolved > 0) {
-          items.push({
-            dedupeKey: `decision:cr-threads:${pr.nodeId}:${unresolved}`,
-            kind: "unresolved_threads",
-            priority: PRIORITY.unresolved_threads,
-            repo: pr.repo.nameWithOwner,
-            title: `${unresolved} unresolved CodeRabbit thread${unresolved === 1 ? "" : "s"} on PR #${pr.number}: ${pr.title}`,
-            detail: null,
-            externalUrl: pr.url,
-            occurredAt: pr.ghUpdatedAt ?? pr.syncedAt,
-          });
-        }
+        return { pr, unresolved: countUnresolvedCodeRabbitThreads(res) };
+      }),
+    );
+    let failed = 0;
+    for (const result of results) {
+      if (result.status === "rejected") {
+        failed += 1;
+        continue;
       }
-    } catch (error) {
-      console.warn("decision queue: review-thread check failed for an installation", briefError(error));
+      if (!result.value || result.value.unresolved === 0) continue;
+      const { pr, unresolved } = result.value;
+      items.push({
+        dedupeKey: `decision:cr-threads:${pr.nodeId}:${unresolved}`,
+        kind: "unresolved_threads",
+        priority: PRIORITY.unresolved_threads,
+        repo: pr.repo.nameWithOwner,
+        title: `${unresolved} unresolved CodeRabbit thread${unresolved === 1 ? "" : "s"} on PR #${pr.number}: ${pr.title}`,
+        detail: null,
+        externalUrl: pr.url,
+        occurredAt: pr.ghUpdatedAt ?? pr.syncedAt,
+      });
+    }
+    if (failed > 0) {
+      console.warn(`decision queue: ${failed} review-thread lookup(s) failed for an installation`);
     }
   }
 
