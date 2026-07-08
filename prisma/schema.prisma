@@ -361,3 +361,12 @@ model AuditBatchItem {
   @@unique([batchId, repoId])
   @@index([batchId])
 }
+
+/// A dismissed Decision-Queue item, keyed by the item's dedupeKey. Dismissed items stay hidden
+/// until the underlying state (and therefore the key) changes. APP.
+model DecisionDismissal {
+  id          String   @id @default(cuid())
+  dedupeKey   String   @unique
+  dismissedBy String
+  dismissedAt DateTime @default(now())
+}
