@@ -63,6 +63,12 @@ API!), roadmap rendering, workflow automation, analytics. Concretely:
 - **Spec sync**: spec files in the repo (spec-kit compatible, `specs/`) → Orchid generates an
   epic + sub-issues via the existing PR writeback (`proposeFiles`) plus **net-new** Issues-API
   integration (no Issues-API calls exist in `src/` today); drift detection spec ↔ issues.
+  Sync is **idempotent by contract**: every task carries a stable ID (spec path + task slug,
+  embedded as a marker comment in the issue body), a `SpecSync` record maps spec → epic →
+  sub-issues with a content hash, and re-running the sync reconciles partial failures
+  (epic created but sub-issue creation failed, issue created but not linked) instead of
+  duplicating. The drift badge is a display aid — the reconciling re-run is the recovery
+  mechanism.
 - **Own boards/roadmap** over Projects data (extend the existing `/projects/[id]` board);
   cycle time/velocity from `projects_v2_item` webhooks (payload carries old + new field values).
 - **Agent-ready-issue check**: short, well-scoped issues with context hints (research finding)
@@ -123,9 +129,13 @@ session log link. Feeds the Decision Queue (`waiting_for_user`, "PR ready").
 ## Architecture evolution (product-ready, no big bang)
 
 1. **Event spine instead of polling-only**: `POST /api/ingest/{source}` route handlers
-   (HMAC verify, fast 200, enqueue into graphile-worker). Sources: **github** (the app
-   webhook secret is already plumbed, just unused!), coolify, sentry, grafana, uptime-kuma,
-   inngest. Polling remains as reconciliation (idempotency via `dedupeKey`).
+   (HMAC verify, fast 200, enqueue into graphile-worker). **Idempotent at the ingest path**:
+   the handler derives a stable `dedupeKey` per delivery (e.g. `X-GitHub-Delivery` or the
+   source's event/entity ID) before enqueueing, and processing upserts on that key — source
+   retries and push+poll overlap no-op instead of double-firing downstream actions. Sources:
+   **`github`** (the app webhook secret is already plumbed, just unused!), `coolify`,
+   `sentry`, `grafana`, `uptime-kuma`, `inngest`. Polling remains as reconciliation against
+   the same dedupe keys.
 2. **New core models** (Prisma, additive migrations — respect the naming convention,
    lexicographically after `repo_provider_keys_multi`): `Signal` (source, kind, severity,
    dedupeKey, payload), `DecisionItem`, `AgentTask`, `App`/`AppLink`, `Deployment`,
@@ -189,9 +199,10 @@ assignment (PAT setting) + optional Cursor API; status sync (Actions/Tasks APIs,
 Issue-→-agent button everywhere issues appear (boards, audit findings, incidents later).
 
 **Phase C — planning studio** *(priority 2)*
-Spec sync (`specs/` → epic + sub-issues via PR + API, drift badge), board expansion (own
-views — there is no Views API), cycle analytics from `projects_v2_item` webhooks,
-agent-ready-issue linter before dispatch.
+Spec sync (`specs/` → epic + sub-issues via PR + API; **idempotent re-runs** reconcile
+partial failures via stable task IDs + the `SpecSync` mapping — see P2; drift badge), board
+expansion (own views — there is no Views API), cycle analytics from `projects_v2_item`
+webhooks, agent-ready-issue linter before dispatch.
 
 **Phase D — fleet health** *(priority 3)*
 App catalog + links, Coolify (webhook + poll, deploy history, deploy trigger), Sentry +
