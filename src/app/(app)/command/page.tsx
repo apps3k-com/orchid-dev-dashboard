@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 
 import { DecisionDismissButton } from "@/components/decision-dismiss-button";
+import EmptyState from "@/components/shadcn-studio/blocks/empty-state-02/empty-state-02";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,25 +51,28 @@ export default async function CommandCenterPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Decision queue
-              <Badge variant={decisions.length > 0 ? "default" : "secondary"}>
-                {decisions.length}
-              </Badge>
-            </CardTitle>
-            <CardDescription>
-              Failing checks, review threads, ready-to-merge PRs and open audit findings — highest
-              priority first.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {decisions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Nothing needs your attention right now. New signals appear here as they arrive.
-              </p>
-            ) : (
+        {decisions.length === 0 ? (
+          <div className="lg:col-span-2">
+            <EmptyState
+              title="Decision queue"
+              description="Failing checks, review threads, ready-to-merge PRs and open audit findings."
+              message="Nothing needs your attention right now"
+              hint="New signals appear here as they arrive."
+            />
+          </div>
+        ) : (
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                Decision queue
+                <Badge variant="default">{decisions.length}</Badge>
+              </CardTitle>
+              <CardDescription>
+                Failing checks, review threads, ready-to-merge PRs and open audit findings — highest
+                priority first.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               <ul className="flex flex-col gap-2">
                 {decisions.map((item) => {
                   const style = decisionKindStyle(item.kind);
@@ -111,21 +115,26 @@ export default async function CommandCenterPage() {
                   );
                 })}
               </ul>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Activity</CardTitle>
-            <CardDescription>Latest events across the fleet (webhook event spine).</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {signals.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No events yet — activity appears here as GitHub webhooks arrive.
-              </p>
-            ) : (
+        {signals.length === 0 ? (
+          <EmptyState
+            title="Activity"
+            description="Latest events across the fleet (webhook event spine)."
+            message="No events yet"
+            hint="Activity appears here as GitHub webhooks arrive."
+          />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Activity</CardTitle>
+              <CardDescription>
+                Latest events across the fleet (webhook event spine).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               <Timeline>
                 {signals.map((signal, index) => (
                   <TimelineItem key={signal.id} status="default">
@@ -144,9 +153,9 @@ export default async function CommandCenterPage() {
                   </TimelineItem>
                 ))}
               </Timeline>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
