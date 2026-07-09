@@ -21,6 +21,7 @@ describe("buildAppManifest", () => {
     expect(m.default_permissions.actions_variables).toBe("write");
     expect(m.default_permissions.organization_actions_variables).toBe("write");
     expect(m.default_permissions.organization_secrets).toBe("write");
+    expect(m.default_permissions.deployments).toBe("read");
   });
 
   it("points the webhook at the ingest route and subscribes the event-spine events", () => {

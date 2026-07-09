@@ -30,6 +30,7 @@ export function buildAppManifest(appUrl: string, name: string) {
       pull_requests: "write",
       checks: "read",
       statuses: "read",
+      deployments: "read", // required to subscribe the `deployment_status` event
       members: "read",
       metadata: "read",
       organization_projects: "write",

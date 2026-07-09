@@ -329,7 +329,8 @@ export async function processGithubEvent(job: {
 
   if (job.event === "pull_request") {
     try {
-      await applyPullCacheUpdate(mapPullRequestCacheUpdate(payload));
+      // Reuse the repo already resolved above (same delivery, same repo) — no second lookup.
+      await applyPullCacheUpdate(mapPullRequestCacheUpdate(payload), repo);
     } catch (error) {
       // The Signal row is already written — a cache hiccup must not fail (and re-run) the job.
       console.warn("ingest:github pull cache write-through failed", briefError(error));
@@ -342,9 +343,13 @@ export async function processGithubEvent(job: {
  * staleness guard: worker `concurrency: 2` can process two deliveries for the same PR out of
  * order, so writes only apply when the incoming `ghUpdatedAt` is not older than the cached one
  * (conditional `updateMany`/`deleteMany` — guarded in the WHERE clause, not read-then-write).
- * Rows without a cached timestamp always accept the write.
+ * Rows without a cached timestamp always accept the write. `knownRepo` is the repo already
+ * resolved by the caller for this delivery — reused to avoid a duplicate lookup.
  */
-async function applyPullCacheUpdate(update: PullCacheUpdate | null): Promise<void> {
+async function applyPullCacheUpdate(
+  update: PullCacheUpdate | null,
+  knownRepo?: { id: string; nameWithOwner: string } | null,
+): Promise<void> {
   if (!update) return;
   if (update.op === "delete") {
     await prisma.pullRequest.deleteMany({
@@ -358,7 +363,10 @@ async function applyPullCacheUpdate(update: PullCacheUpdate | null): Promise<voi
     });
     return;
   }
-  const repo = await prisma.repo.findUnique({ where: { nameWithOwner: update.repoFullName } });
+  const repo =
+    knownRepo && knownRepo.nameWithOwner === update.repoFullName
+      ? knownRepo
+      : await prisma.repo.findUnique({ where: { nameWithOwner: update.repoFullName } });
   if (!repo) return; // repo not cached yet — the next syncRepos run picks it up
   const fields = { repoId: repo.id, ...update.fields, syncedAt: new Date() };
   const incoming = update.fields.ghUpdatedAt;

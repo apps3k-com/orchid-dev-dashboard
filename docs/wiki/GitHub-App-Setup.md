@@ -40,6 +40,7 @@ Die App muss dort **installierbar** sein, **wo die zu verwaltenden Repos liegen*
 | Permission | Stufe |
 |---|---|
 | Contents | Read and write |
+| Deployments | Read-only *(für das `deployment_status`-Event des Event-Spines)* |
 | Issues | Read and write |
 | Metadata | Read-only *(Pflicht, automatisch)* |
 | Pull requests | Read and write |
