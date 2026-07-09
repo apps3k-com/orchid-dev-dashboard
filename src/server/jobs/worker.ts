@@ -2,6 +2,7 @@ import { type Runner, run } from "graphile-worker";
 import { syncAll } from "@/server/github/sync";
 import { runAudit } from "@/server/llm/audit";
 import { runBatchEstimate } from "@/server/llm/audit-estimate";
+import { processGithubEvent } from "@/server/signals/github";
 
 const globalForWorker = globalThis as unknown as { orchidWorker?: Runner };
 
@@ -31,6 +32,13 @@ export async function startWorker(): Promise<void> {
         const { batchId } = (payload ?? {}) as { batchId?: string };
         if (!batchId) throw new Error("audit:estimate job is missing batchId");
         await runBatchEstimate(batchId);
+      },
+      "ingest:github": async (payload) => {
+        const job = (payload ?? {}) as { deliveryId?: string; event?: string; payload?: unknown };
+        if (!job.deliveryId || !job.event) {
+          throw new Error("ingest:github job is missing deliveryId/event");
+        }
+        await processGithubEvent({ deliveryId: job.deliveryId, event: job.event, payload: job.payload });
       },
     },
     crontab: "*/5 * * * * sync:all",

@@ -8,6 +8,10 @@
  * (`actions_variables` / `organization_actions_variables`) — the org one is required to write the
  * org-wide PRODUCTS variable. Keys verified against a live App's granted permissions object.
  *
+ * `default_events` + `hook_attributes.url` feed the event spine (`/api/ingest/github`): apps
+ * created BEFORE this list grew must enable the additional events manually in the App settings
+ * (documented in docs/wiki/GitHub-App-Setup.md).
+ *
  * @param appUrl - The public base URL of this instance (e.g. https://orchid.example.com).
  * @param name - The App name to pre-fill (must be globally unique on GitHub).
  */
@@ -19,12 +23,14 @@ export function buildAppManifest(appUrl: string, name: string) {
     callback_urls: [`${appUrl}/api/auth/callback`],
     request_oauth_on_install: false,
     public: false,
+    hook_attributes: { url: `${appUrl}/api/ingest/github`, active: true },
     default_permissions: {
       contents: "write",
       issues: "write",
       pull_requests: "write",
       checks: "read",
       statuses: "read",
+      deployments: "read", // required to subscribe the `deployment_status` event
       members: "read",
       metadata: "read",
       organization_projects: "write",
@@ -32,6 +38,13 @@ export function buildAppManifest(appUrl: string, name: string) {
       organization_actions_variables: "write",
       organization_secrets: "write",
     },
-    default_events: ["issues", "pull_request"],
+    default_events: [
+      "issues",
+      "pull_request",
+      "check_suite",
+      "deployment_status",
+      "release",
+      "projects_v2_item",
+    ],
   } as const;
 }

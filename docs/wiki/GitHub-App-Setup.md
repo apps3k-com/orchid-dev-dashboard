@@ -30,7 +30,7 @@ Die App muss dort **installierbar** sein, **wo die zu verwaltenden Repos liegen*
 | **Request user authorization (OAuth) during installation** | aus | Manifest: `request_oauth_on_install: false` |
 | **Enable Device Flow** | aus | |
 | **Setup URL (optional)** | `<APP_URL>/setup/callback` | Post-Install-Redirect (Manifest: `redirect_url`) |
-| **Webhook → Active** | **aus** | v1 verarbeitet keine Webhooks (Ingest = v2); abgehakt entfällt die sonst verpflichtende Webhook-URL |
+| **Webhook → Active** | **an** | Event-Spine: URL = `<APP_URL>/api/ingest/github`, dazu ein **Webhook secret** setzen (→ `GITHUB_APP_WEBHOOK_SECRET`; ohne Secret antwortet der Ingest mit 503) |
 | **Where can this App be installed?** | „Only on this account" (Org-App) bzw. „Any account" (persönlich) | s. o. |
 
 ## Permissions
@@ -40,6 +40,7 @@ Die App muss dort **installierbar** sein, **wo die zu verwaltenden Repos liegen*
 | Permission | Stufe |
 |---|---|
 | Contents | Read and write |
+| Deployments | Read-only *(für das `deployment_status`-Event des Event-Spines)* |
 | Issues | Read and write |
 | Metadata | Read-only *(Pflicht, automatisch)* |
 | Pull requests | Read and write |
@@ -54,7 +55,15 @@ Die App muss dort **installierbar** sein, **wo die zu verwaltenden Repos liegen*
 | Secrets | Read and write |
 | Variables | Read and write |
 
-**Account permissions:** keine. **Subscribe to events:** keine (Webhook aus).
+**Account permissions:** keine. **Subscribe to events:** `Issues` · `Pull request` ·
+`Check suite` · `Deployment status` · `Release` · `Projects v2 item` (die sechs Events des
+Event-Spines; Quelle: `default_events` in `manifest.ts`).
+
+> **Bestehende Apps (vor dem Event-Spine angelegt):** Events + Webhook-URL werden bei einer
+> vorhandenen App **nicht** automatisch nachgezogen. In den App-Settings unter *Webhook* die URL
+> `<APP_URL>/api/ingest/github` + Secret aktivieren und unter *Permissions & events →
+> Subscribe to events* die sechs Events anhaken. Ohne das bleibt Orchid beim 5-Minuten-Polling
+> (funktional, nur langsamer).
 
 **Wofür:** Repo-`Contents`/`Pull requests` (RW) → Audit-Fix-PRs + Module-Editor; `Issues` (RW) → Sync + Closing-Keywords; repo-`Variables` (RW) → Automations-Recipe-Repo-Vars; org-`Variables` (RW) → die org-weite `PRODUCTS`-Variable (`PATCH /orgs/{org}/actions/variables`); `Secrets` (RW) → Automations-Provisioning; `Projects` (RW) → Projects-Sync/-Board; `Members` (RO) → gated Login + Org-Mitgliedschaftsprüfung; `Metadata` (RO) → Pflicht.
 
@@ -75,7 +84,7 @@ Die App muss dort **installierbar** sein, **wo die zu verwaltenden Repos liegen*
 | Private key (PEM) | `GITHUB_APP_PRIVATE_KEY` |
 | Client ID | `GITHUB_APP_CLIENT_ID` |
 | Client secret | `GITHUB_APP_CLIENT_SECRET` |
-| Webhook secret *(erst v2)* | `GITHUB_APP_WEBHOOK_SECRET` |
+| Webhook secret | `GITHUB_APP_WEBHOOK_SECRET` |
 
 Zusätzlich: `APP_URL=<APP_URL>` · `SESSION_SECRET` (`openssl rand -base64 32`) · optional `APP_ENCRYPTION_KEY` (sonst Fallback auf `SESSION_SECRET`) · `ORCHID_LLM_ADMINS=<github-logins>` (kommasepariert; nötig für den BYOK-Auditor). Im Docker-Bundle setzt `docker-compose.yml` die `DATABASE_URL` selbst.
 
