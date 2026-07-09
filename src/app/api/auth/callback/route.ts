@@ -71,7 +71,7 @@ export async function GET(req: Request) {
     });
     await createSession(user.id);
 
-    const res = NextResponse.redirect(new URL("/dashboard", appUrl()));
+    const res = NextResponse.redirect(new URL("/command", appUrl()));
     res.cookies.delete("orchid_oauth_state");
     return res;
   } catch (err) {

@@ -7,6 +7,7 @@ import {
   FolderGit2,
   FolderKanban,
   GitPullRequest,
+  Inbox,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -40,6 +41,7 @@ import {
 type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
 
 const VIEWS: NavItem[] = [
+  { href: "/command", label: "Command Center", icon: Inbox },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/pulls", label: "Pull requests", icon: GitPullRequest },
   { href: "/projects", label: "Projects", icon: FolderKanban },
@@ -96,7 +98,7 @@ export function AppSidebar({ user }: { user: SidebarUser }) {
   return (
     <Sidebar>
       <SidebarHeader>
-        <Link href="/dashboard" className="flex items-center gap-2 px-2 py-1.5 font-semibold">
+        <Link href="/command" className="flex items-center gap-2 px-2 py-1.5 font-semibold">
           <LayoutDashboard className="text-primary size-5" />
           <span>Orchid</span>
         </Link>

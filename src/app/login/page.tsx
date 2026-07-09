@@ -18,14 +18,14 @@ const ERRORS: Record<string, string> = {
   not_member: "You must be a member of an organization that Orchid manages.",
 };
 
-/** Sign-in page. Redirects to /setup if unconfigured, or to /dashboard if already signed in. */
+/** Sign-in page. Redirects to /setup if unconfigured, or to /command if already signed in. */
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
   if (!(await isConfigured())) redirect("/setup");
-  if (await getSessionUser()) redirect("/dashboard");
+  if (await getSessionUser()) redirect("/command");
   const { error } = await searchParams;
 
   return (
