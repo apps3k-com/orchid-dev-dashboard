@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.3.0](https://github.com/apps3k-com/orchid-dev-dashboard/compare/v1.2.0...v1.3.0) (2026-07-09)
+
+
+### Added
+
+* **command:** Command Center page, activity feed + nav ([682d204](https://github.com/apps3k-com/orchid-dev-dashboard/commit/682d2042339eb65383a2c288ec5abbfae78d614c))
+* **command:** Command Center page, activity feed + nav ([#117](https://github.com/apps3k-com/orchid-dev-dashboard/issues/117)) ([5fa1732](https://github.com/apps3k-com/orchid-dev-dashboard/commit/5fa1732df4607dfc6e044878b69d804543e481a0))
+* **decisions:** Decision Queue backend + dismissals ([ba84fa2](https://github.com/apps3k-com/orchid-dev-dashboard/commit/ba84fa23a6a52d4ac69576a20f8feb07761c33e3))
+* **decisions:** Decision Queue backend + dismissals ([#116](https://github.com/apps3k-com/orchid-dev-dashboard/issues/116)) ([e9dfade](https://github.com/apps3k-com/orchid-dev-dashboard/commit/e9dfadea3a0ef278e201ae154ed9e05bfd0ec4dc))
+* **signals:** Signal model + GitHub webhook ingest ([#115](https://github.com/apps3k-com/orchid-dev-dashboard/issues/115)) ([a22f29b](https://github.com/apps3k-com/orchid-dev-dashboard/commit/a22f29bd77460844456eefeb2c3fb6318d8ffbd4))
+* **signals:** Signal model + GitHub webhook ingest (event spine) ([d1f41bc](https://github.com/apps3k-com/orchid-dev-dashboard/commit/d1f41bcd90a7f36437da30964d7402859bf9933f))
+
+
+### Fixed
+
+* **command:** shared EmptyState block + awaited dismiss transition ([#117](https://github.com/apps3k-com/orchid-dev-dashboard/issues/117)) ([09dc3a7](https://github.com/apps3k-com/orchid-dev-dashboard/commit/09dc3a74f7cade4b1170022767ca230ded3f8b9f))
+* **decisions:** per-org thread-check cap + parallel GraphQL lookups ([#116](https://github.com/apps3k-com/orchid-dev-dashboard/issues/116)) ([9164504](https://github.com/apps3k-com/orchid-dev-dashboard/commit/91645040be5efeac904cf028550962810c77f3e1))
+* **decisions:** strict MERGEABLE gate + per-lookup timeout ([#116](https://github.com/apps3k-com/orchid-dev-dashboard/issues/116)) ([05c0aea](https://github.com/apps3k-com/orchid-dev-dashboard/commit/05c0aea0c6e119cef61cb22ea430769214fe4fe2))
+* **signals:** add deployments:read perm + reuse resolved repo ([#115](https://github.com/apps3k-com/orchid-dev-dashboard/issues/115)) ([f98de18](https://github.com/apps3k-com/orchid-dev-dashboard/commit/f98de18933badbdb84377caf7a58bc6b134a880e))
+* **signals:** surface enqueue failure + guard PR cache against out-of-order webhooks ([#115](https://github.com/apps3k-com/orchid-dev-dashboard/issues/115)) ([090a5f5](https://github.com/apps3k-com/orchid-dev-dashboard/commit/090a5f515320030ae1aea23e0498fc60a9c40936))
+
 ## [1.2.0](https://github.com/apps3k-com/orchid-dev-dashboard/compare/v1.1.1...v1.2.0) (2026-07-08)
 
 
