@@ -16,7 +16,7 @@ describe("mergeWorkflowBinding", () => {
         { repository: "apps3k-com/Venuemaster3000", statusTargets: { open: "In Progress" } },
       ],
     };
-    const next = mergeWorkflowBinding(current, { repository: "apps3k-com/Venuemaster3000", workflow: { mode: "observe" } });
+    const next = mergeWorkflowBinding(current, { repository: "apps3k-com/Venuemaster3000", workflow: { mode: "observe" } }, "apps3k-com/Venuemaster3000");
     expect(next.todoDispatch).toEqual({ enabled: true });
     expect(next.bindings).toEqual([
       { repository: "apps3k-com/hetzner-cloud", statusTargets: { open: "In Progress" } },
@@ -25,11 +25,15 @@ describe("mergeWorkflowBinding", () => {
   });
 
   it("rejects an unaddressable proposed binding", () => {
-    expect(() => mergeWorkflowBinding({ bindings: [] }, {})).toThrow(/repository identity/);
+    expect(() => mergeWorkflowBinding({ bindings: [] }, {}, "acme/widgets")).toThrow(/repository identity/);
   });
 
   it("rejects an ambiguous existing repository binding", () => {
-    expect(() => mergeWorkflowBinding({ bindings: [{ repository: "Acme/Widgets" }, { repository: "acme/widgets" }] }, { repository: "acme/widgets" })).toThrow(/duplicate bindings/);
+    expect(() => mergeWorkflowBinding({ bindings: [{ repository: "Acme/Widgets" }, { repository: "acme/widgets" }] }, { repository: "acme/widgets" }, "acme/widgets")).toThrow(/duplicate bindings/);
+  });
+
+  it("rejects a bridge binding for a different repository", () => {
+    expect(() => mergeWorkflowBinding({ bindings: [] }, { repository: "other/widgets" }, "acme/widgets")).toThrow(/different repository/);
   });
 });
 

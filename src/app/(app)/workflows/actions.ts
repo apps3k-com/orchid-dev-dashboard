@@ -143,7 +143,7 @@ export async function proposeWorkflowProfile(
     if (!repo) return { ok: false, message: "Workflow infrastructure repository is not available in Orchid." };
     if (!(await isOrgMember(repo.org, user.login))) return { ok: false, message: "You are not a member of the workflow infrastructure organization." };
     const { config: current, headSha } = await readWorkflowConfig(repo);
-    const next = mergeWorkflowBinding(current, simulation.proposedBinding);
+    const next = mergeWorkflowBinding(current, simulation.proposedBinding, profile.repository);
     const { prUrl } = await proposeFiles(repo, [{ path: WORKFLOW_CONFIG_PATH, content: `${JSON.stringify(next, null, 2)}\n` }], {
       branchPrefix: "orchid/workflow-profile",
       commitMessage: `feat(workflow): add ${profile.repository} profile`,

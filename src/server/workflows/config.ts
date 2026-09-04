@@ -40,9 +40,11 @@ export async function readWorkflowConfig(repo: Repo): Promise<WorkflowConfigSnap
 export function mergeWorkflowBinding(
   current: WorkflowConfig,
   proposedBinding: Record<string, unknown>,
+  expectedRepository: string,
 ): WorkflowConfig {
   const repository = proposedBinding.repository;
   if (typeof repository !== "string" || !repository) throw new Error("Bridge proposed a binding without a repository identity.");
+  if (repository.toLowerCase() !== expectedRepository.toLowerCase()) throw new Error("Bridge proposed a binding for a different repository.");
   const sameRepository = (binding: Record<string, unknown>) =>
     typeof binding.repository === "string" && binding.repository.toLowerCase() === repository.toLowerCase();
   const matches = current.bindings.filter(sameRepository).length;

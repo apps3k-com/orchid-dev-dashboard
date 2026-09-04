@@ -61,13 +61,17 @@ Postgres administrator, then start it in a separate terminal:
 
 ```bash
 # Run from the Orchid worktree. Credentials are never written to a generated .env file.
+export INFRA_WORKTREE=/path/to/your/hetzner-cloud-worktree
+export INFRA_BOOTSTRAP_ENV_FILE=/path/to/original/hetzner-cloud/.env.local
 WORKFLOW_BRIDGE_URL=http://127.0.0.1:8789 bash scripts/dev-env.sh python3 \
-  /Users/soundandstuff/coding/apps3k/hetzner-cloud-workflow/scripts/plane-bridge-local.py
+  "$INFRA_WORKTREE/scripts/plane-bridge-local.py"
 ```
 
 The `plane_github_bridge` database already exists in the local Postgres instance. Bridge dependencies
 are installed with `npm ci` in `hetzner-cloud-workflow/configs/plane-github`. The infra launcher's
-scoped bootstrap is read from the original infra `.env.local` (`INFRA_BOOTSTRAP_ENV_FILE` override).
+scoped bootstrap is read by the infra launcher from the original infra `.env.local`
+(`INFRA_BOOTSTRAP_ENV_FILE` override). Orchid's wrapper supplies the purpose-separated
+local API tokens to that launcher.
 It uses the authenticated GitHub CLI for read access and the canonical infra 1Password items for
 Plane and Coolify. With a loopback bridge URL, both local processes derive purpose-separated API
 tokens from Orchid's injected session secret. Remote bridge deployments require independently

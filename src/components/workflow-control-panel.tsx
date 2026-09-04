@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useMemo, useState, type ChangeEvent } from "react";
+import { useActionState, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { Download, ExternalLink, Play, RefreshCw, Send } from "lucide-react";
 import { proposeWorkflowProfile, reconcileProfile, simulateProfile, type WorkflowActionState } from "@/app/(app)/workflows/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -61,6 +62,25 @@ function evidenceBadge(status: string | undefined): "secondary" | "outline" | "d
   return "outline";
 }
 
+/** Permit navigation only to ordinary web URLs returned by external providers. */
+export function safeExternalHref(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Render unsafe or malformed provider URLs as inert text. */
+function ExternalEvidenceLink({ url, className, children }: { url: string | null | undefined; className?: string; children: ReactNode }) {
+  const href = safeExternalHref(url);
+  return href
+    ? <a className={className} href={href} target="_blank" rel="noreferrer">{children}</a>
+    : <span className={className}>{children}</span>;
+}
+
 /** Compact delivery read model. Evidence comes exclusively from the bridge; empty stays visibly empty. */
 function DeliveryTable({ deliveries }: { deliveries: WorkflowDelivery[] }) {
   if (deliveries.length === 0) {
@@ -97,9 +117,9 @@ function DeliveryTable({ deliveries }: { deliveries: WorkflowDelivery[] }) {
               <TableCell>
                 {delivery.pullRequest ? (
                   <div className="space-y-1 text-xs">
-                    <a className="flex items-center gap-1 font-medium underline" href={delivery.pullRequest.url} target="_blank" rel="noreferrer">
+                    <ExternalEvidenceLink className="flex items-center gap-1 font-medium underline" url={delivery.pullRequest.url}>
                       #{delivery.pullRequest.number}<ExternalLink className="size-3" />
-                    </a>
+                    </ExternalEvidenceLink>
                     <p>head {shortSha(delivery.pullRequest.headSha)}</p>
                     <p>merge {shortSha(delivery.pullRequest.mergeSha)}</p>
                     <Badge variant={delivery.pullRequest.draft ? "outline" : "secondary"}>{delivery.pullRequest.draft ? "draft" : delivery.pullRequest.merged ? "merged" : "open"}</Badge>
@@ -109,7 +129,7 @@ function DeliveryTable({ deliveries }: { deliveries: WorkflowDelivery[] }) {
                         <ul className="mt-1 space-y-1">
                           {delivery.checks.map((check, index) => (
                             <li key={`${check.name}-${index}`} className="flex flex-wrap items-center gap-1">
-                              {check.url ? <a className="underline" href={check.url} target="_blank" rel="noreferrer">{check.name}</a> : <span>{check.name}</span>}
+                              <ExternalEvidenceLink className={check.url ? "underline" : undefined} url={check.url}>{check.name}</ExternalEvidenceLink>
                               <Badge variant={evidenceBadge(check.conclusion ?? check.status)}>{check.conclusion ?? check.status}</Badge>
                             </li>
                           ))}
@@ -124,8 +144,8 @@ function DeliveryTable({ deliveries }: { deliveries: WorkflowDelivery[] }) {
                   <div className="space-y-1 text-xs">
                     <Badge variant={evidenceBadge(delivery.preview.status)}>{delivery.preview.status}</Badge>
                     <p>{shortSha(delivery.preview.sha)}</p>
-                    <a className="underline" href={delivery.preview.url} target="_blank" rel="noreferrer">Open preview</a>
-                    {delivery.preview.deploymentUrl ? <a className="block underline" href={delivery.preview.deploymentUrl} target="_blank" rel="noreferrer">Coolify deployment {delivery.preview.deploymentId}</a> : <p>deployment {delivery.preview.deploymentId}</p>}
+                    <ExternalEvidenceLink className="underline" url={delivery.preview.url}>Open preview</ExternalEvidenceLink>
+                    {delivery.preview.deploymentUrl ? <ExternalEvidenceLink className="block underline" url={delivery.preview.deploymentUrl}>Coolify deployment {delivery.preview.deploymentId}</ExternalEvidenceLink> : <p>deployment {delivery.preview.deploymentId}</p>}
                   </div>
                 ) : "—"}
               </TableCell>
@@ -134,14 +154,14 @@ function DeliveryTable({ deliveries }: { deliveries: WorkflowDelivery[] }) {
                   <div className="space-y-1 text-xs">
                     <Badge variant={evidenceBadge(delivery.staging.status)}>{delivery.staging.status}</Badge>
                     <p>{delivery.staging.releaseTag} · {shortSha(delivery.staging.sha)}</p>
-                    <a className="underline" href={delivery.staging.url} target="_blank" rel="noreferrer">run {delivery.staging.runId}</a>
+                    <ExternalEvidenceLink className="underline" url={delivery.staging.url}>run {delivery.staging.runId}</ExternalEvidenceLink>
                   </div>
                 ) : "—"}
               </TableCell>
               <TableCell>
                 {delivery.release ? (
                   <div className="space-y-1 text-xs">
-                    <a className="font-medium underline" href={delivery.release.url} target="_blank" rel="noreferrer">{delivery.release.tag}</a>
+                    <ExternalEvidenceLink className="font-medium underline" url={delivery.release.url}>{delivery.release.tag}</ExternalEvidenceLink>
                     <p>{shortSha(delivery.release.sha)}</p>
                     <p>{stamp(delivery.release.publishedAt)}</p>
                   </div>
@@ -192,10 +212,10 @@ function ReconcilePanel({ repository }: { repository: string }) {
         <Label htmlFor={`run-${repository}`}>Promotion run (optional)</Label>
         <Input id={`run-${repository}`} name="promotionRunId" inputMode="numeric" placeholder="33728716260" className="w-40" />
       </div>
-      <label className="flex items-center gap-2 pb-2 text-sm">
-        <input type="checkbox" checked={apply} onChange={(event) => setApply(event.target.checked)} />
-        Apply if bridge full mode permits it
-      </label>
+      <div className="flex items-center gap-2 pb-2 text-sm">
+        <Checkbox id={`apply-${repository}`} checked={apply} onCheckedChange={(checked) => setApply(checked === true)} />
+        <Label htmlFor={`apply-${repository}`}>Apply if bridge full mode permits it</Label>
+      </div>
       <Button type="submit" size="sm" disabled={pending}>
         <RefreshCw className="size-4" />{pending ? "Reconciling…" : "Reconcile"}
       </Button>
@@ -292,7 +312,7 @@ function ProfileEditor({ configurationRepository }: { configurationRepository: s
                 <div className="grid gap-2"><Label htmlFor="primary-closing-reference">Primary closing reference</Label><Input id="primary-closing-reference" name="primaryClosingReference" placeholder="Closes A3KCL-123" required /></div>
                 <Button type="submit" disabled={proposalPending || !configurationRepository}><Send className="size-4" />{proposalPending ? "Opening PR…" : "Open configuration PR"}</Button>
                 <p className="basis-full text-xs text-muted-foreground">The PR merges only the proposed repository binding and preserves `todoDispatch` and every other binding.</p>
-                {proposalState.message ? <p role="status" className={`basis-full text-sm ${proposalState.ok ? "text-muted-foreground" : "text-destructive"}`}>{proposalState.message} {proposalState.prUrl ? <a className="underline" href={proposalState.prUrl} target="_blank" rel="noreferrer">View pull request</a> : null}</p> : null}
+                {proposalState.message ? <p role="status" className={`basis-full text-sm ${proposalState.ok ? "text-muted-foreground" : "text-destructive"}`}>{proposalState.message} {proposalState.prUrl ? <ExternalEvidenceLink className="underline" url={proposalState.prUrl}>View pull request</ExternalEvidenceLink> : null}</p> : null}
               </form>
             ) : null}
           </div>

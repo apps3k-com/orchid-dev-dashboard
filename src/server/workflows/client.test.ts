@@ -23,6 +23,13 @@ describe("workflow bridge client", () => {
     expect(fetchMock).toHaveBeenCalledWith(new URL("http://bridge.internal:8789/api/v1/profiles"), expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer read-token" }) }));
   });
 
+  it("rejects malformed nested profile data", async () => {
+    process.env.WORKFLOW_BRIDGE_URL = "http://bridge.internal:8789";
+    process.env.BRIDGE_READ_TOKEN = "read-token";
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ schemaVersion: 1, profiles: [null] }), { status: 200 }));
+    await expect(listWorkflowProfiles()).rejects.toThrow("unsupported profiles response");
+  });
+
   it("uses the operator token for explicit reconciliation, including observe mode", async () => {
     process.env.WORKFLOW_BRIDGE_URL = "http://bridge.internal:8789";
     process.env.BRIDGE_READ_TOKEN = "read-token";
@@ -33,6 +40,7 @@ describe("workflow bridge client", () => {
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer operator-token");
   });
 
+  /** A queue acknowledgement cannot substitute for the synchronous evidence contract. */
   it("rejects a queued response where synchronous delivery evidence is required", async () => {
     process.env.WORKFLOW_BRIDGE_URL = "http://bridge.internal:8789";
     process.env.BRIDGE_OPERATOR_TOKEN = "operator-token";
