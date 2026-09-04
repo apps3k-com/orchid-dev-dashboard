@@ -27,6 +27,9 @@ def main():
         raise SystemExit('Node download checksum mismatch; no extraction performed.')
     with tarfile.open(archive) as source:
         source.extractall(root, filter='data')
+    node_bin = root / f'node-v{NODE_VERSION}-darwin-arm64/bin'
+    subprocess.run([str(node_bin / 'node'), str(node_bin / 'corepack'),
+                    'enable', '--install-directory', str(node_bin), 'pnpm'], check=True)
     archive = root / f'op-{OP_VERSION}.zip'
     if not archive.exists():
         urllib.request.urlretrieve(f'https://cache.agilebits.com/dist/1P/op2/pkg/v{OP_VERSION}/op_darwin_arm64_v{OP_VERSION}.zip', archive)
