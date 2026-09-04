@@ -9,6 +9,9 @@
 # already excludes this path. Functional, security, and accessibility review of
 # these files is unaffected.
 reviews:
+  # Allow the owner-requested top-level `@coderabbit approve` command to submit
+  # an approval after all findings are resolved and checks are green.
+  request_changes_workflow: true
   path_instructions:
     - path: "src/components/ui/**"
       instructions: >-

@@ -49,6 +49,7 @@ const VIEWS: NavItem[] = [
   { href: "/hooks", label: "Hooks", icon: Webhook },
   { href: "/audits", label: "Audits", icon: ShieldCheck },
   { href: "/compliance", label: "Compliance", icon: BadgeCheck },
+  { href: "/workflows", label: "Workflow control", icon: Workflow },
 ];
 
 const SETTINGS: NavItem[] = [

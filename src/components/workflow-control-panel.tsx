@@ -1,0 +1,344 @@
+"use client";
+
+import { useActionState, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import { Download, ExternalLink, Play, RefreshCw, Send } from "lucide-react";
+import { proposeWorkflowProfile, reconcileProfile, simulateProfile, type WorkflowActionState } from "@/app/(app)/workflows/actions";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { WorkflowDelivery, WorkflowProfile } from "@/server/workflows/types";
+
+const INITIAL: WorkflowActionState = { ok: false, message: "" };
+
+export type WorkflowSnapshot = {
+  profile: WorkflowProfile;
+  deliveries: WorkflowDelivery[];
+  lastReconciledAt: string | null;
+  error: string | null;
+};
+
+type ProfileDraft = WorkflowProfile;
+
+const EMPTY_PROFILE: ProfileDraft = {
+  id: "",
+  repository: "",
+  workspaceSlug: "apps3k",
+  projectId: "",
+  projectIdentifier: "",
+  defaultBranch: "main",
+  mode: "observe",
+  preview: { provider: "coolify", applicationId: "", urlTemplate: "https://pr-{{pr_id}}.preview.example.invalid" },
+  staging: { workflow: "Promote Published Release Tag to Staging", artifactPrefix: "staging-acceptance-" },
+  states: {
+    inProgress: "In Progress",
+    inReview: "In Review",
+    onStaging: "On Staging",
+    readyForRelease: "Ready for Release",
+    done: "Done",
+    cancelled: "Cancelled",
+  },
+};
+
+function stamp(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? value : date.toLocaleString();
+}
+
+function shortSha(value: string | null | undefined): string {
+  return value ? value.slice(0, 10) : "—";
+}
+
+function evidenceBadge(status: string | undefined): "secondary" | "outline" | "destructive" {
+  if (!status) return "outline";
+  if (/success|finished|published|accepted/i.test(status)) return "secondary";
+  if (/fail|error|missing/i.test(status)) return "destructive";
+  return "outline";
+}
+
+/** Permit navigation only to ordinary web URLs returned by external providers. */
+export function safeExternalHref(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Render unsafe or malformed provider URLs as inert text. */
+function ExternalEvidenceLink({ url, className, children }: { url: string | null | undefined; className?: string; children: ReactNode }) {
+  const href = safeExternalHref(url);
+  return href
+    ? <a className={className} href={href} target="_blank" rel="noreferrer">{children}</a>
+    : <span className={className}>{children}</span>;
+}
+
+/** Compact delivery read model. Evidence comes exclusively from the bridge; empty stays visibly empty. */
+function DeliveryTable({ deliveries }: { deliveries: WorkflowDelivery[] }) {
+  if (deliveries.length === 0) {
+    return <p className="text-sm text-muted-foreground">No deliveries have been reconciled for this profile.</p>;
+  }
+  return (
+    <div className="overflow-x-auto rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Work item</TableHead>
+            <TableHead>Current → expected</TableHead>
+            <TableHead>PR delivery</TableHead>
+            <TableHead>Preview</TableHead>
+            <TableHead>Staging</TableHead>
+            <TableHead>Release</TableHead>
+            <TableHead>Reason</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {deliveries.map((delivery) => (
+            <TableRow key={delivery.workItemId}>
+              <TableCell>
+                <p className="font-medium">{delivery.workItem}</p>
+                <p className="max-w-48 truncate text-xs text-muted-foreground" title={delivery.title}>{delivery.title}</p>
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-wrap items-center gap-1 text-sm">
+                  <Badge variant="outline">{delivery.currentState}</Badge>
+                  <span className="text-muted-foreground">→</span>
+                  {delivery.expectedState ? <Badge variant="secondary">{delivery.expectedState}</Badge> : <span>—</span>}
+                </div>
+              </TableCell>
+              <TableCell>
+                {delivery.pullRequest ? (
+                  <div className="space-y-1 text-xs">
+                    <ExternalEvidenceLink className="flex items-center gap-1 font-medium underline" url={delivery.pullRequest.url}>
+                      #{delivery.pullRequest.number}<ExternalLink className="size-3" />
+                    </ExternalEvidenceLink>
+                    <p>head {shortSha(delivery.pullRequest.headSha)}</p>
+                    <p>merge {shortSha(delivery.pullRequest.mergeSha)}</p>
+                    <Badge variant={delivery.pullRequest.draft ? "outline" : "secondary"}>{delivery.pullRequest.draft ? "draft" : delivery.pullRequest.merged ? "merged" : "open"}</Badge>
+                    {delivery.checks?.length ? (
+                      <details className="pt-1 text-muted-foreground">
+                        <summary className="cursor-pointer">{delivery.checks.length} CI / review check{delivery.checks.length === 1 ? "" : "s"}</summary>
+                        <ul className="mt-1 space-y-1">
+                          {delivery.checks.map((check, index) => (
+                            <li key={`${check.name}-${index}`} className="flex flex-wrap items-center gap-1">
+                              <ExternalEvidenceLink className={check.url ? "underline" : undefined} url={check.url}>{check.name}</ExternalEvidenceLink>
+                              <Badge variant={evidenceBadge(check.conclusion ?? check.status)}>{check.conclusion ?? check.status}</Badge>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                  </div>
+                ) : "—"}
+              </TableCell>
+              <TableCell>
+                {delivery.preview ? (
+                  <div className="space-y-1 text-xs">
+                    <Badge variant={evidenceBadge(delivery.preview.status)}>{delivery.preview.status}</Badge>
+                    <p>{shortSha(delivery.preview.sha)}</p>
+                    <ExternalEvidenceLink className="underline" url={delivery.preview.url}>Open preview</ExternalEvidenceLink>
+                    {delivery.preview.deploymentUrl ? <ExternalEvidenceLink className="block underline" url={delivery.preview.deploymentUrl}>Coolify deployment {delivery.preview.deploymentId}</ExternalEvidenceLink> : <p>deployment {delivery.preview.deploymentId}</p>}
+                  </div>
+                ) : "—"}
+              </TableCell>
+              <TableCell>
+                {delivery.staging ? (
+                  <div className="space-y-1 text-xs">
+                    <Badge variant={evidenceBadge(delivery.staging.status)}>{delivery.staging.status}</Badge>
+                    <p>{delivery.staging.releaseTag} · {shortSha(delivery.staging.sha)}</p>
+                    <ExternalEvidenceLink className="underline" url={delivery.staging.url}>run {delivery.staging.runId}</ExternalEvidenceLink>
+                  </div>
+                ) : "—"}
+              </TableCell>
+              <TableCell>
+                {delivery.release ? (
+                  <div className="space-y-1 text-xs">
+                    <ExternalEvidenceLink className="font-medium underline" url={delivery.release.url}>{delivery.release.tag}</ExternalEvidenceLink>
+                    <p>{shortSha(delivery.release.sha)}</p>
+                    <p>{stamp(delivery.release.publishedAt)}</p>
+                  </div>
+                ) : "—"}
+              </TableCell>
+              <TableCell>
+                <p className="max-w-64 text-xs">{delivery.reason}</p>
+                {delivery.decisions.length ? <DecisionList decisions={delivery.decisions} /> : null}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function DecisionList({ decisions }: { decisions: WorkflowDelivery["decisions"] }) {
+  return (
+    <details className="mt-2 text-xs text-muted-foreground">
+      <summary className="cursor-pointer">{decisions.length} decision{decisions.length === 1 ? "" : "s"}</summary>
+      <ul className="mt-1 space-y-1">
+        {decisions.map((decision, index) => (
+          <li key={`${decision.at}-${index}`}>{decision.from} → {decision.to ?? "no transition"}: {decision.reason}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+/** Explicit bridge reconciliation control. The server action keeps both tokens out of the browser. */
+function ReconcilePanel({ repository }: { repository: string }) {
+  const [state, action, pending] = useActionState(reconcileProfile, INITIAL);
+  const [apply, setApply] = useState(false);
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-3 rounded-md border bg-muted/30 p-3">
+      <input type="hidden" name="repository" value={repository} />
+      <input type="hidden" name="apply" value={apply ? "true" : "false"} />
+      <div className="grid gap-2">
+        <Label htmlFor={`items-${repository}`}>Work items (optional)</Label>
+        <Input id={`items-${repository}`} name="workItems" placeholder="VM3K-184, VM3K-187" className="w-52" />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor={`pr-${repository}`}>PR hint (optional)</Label>
+        <Input id={`pr-${repository}`} name="pullRequest" inputMode="numeric" placeholder="1545" className="w-28" />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor={`run-${repository}`}>Promotion run (optional)</Label>
+        <Input id={`run-${repository}`} name="promotionRunId" inputMode="numeric" placeholder="33728716260" className="w-40" />
+      </div>
+      <div className="flex items-center gap-2 pb-2 text-sm">
+        <Checkbox id={`apply-${repository}`} checked={apply} onCheckedChange={(checked) => setApply(checked === true)} />
+        <Label htmlFor={`apply-${repository}`}>Apply if bridge full mode permits it</Label>
+      </div>
+      <Button type="submit" size="sm" disabled={pending}>
+        <RefreshCw className="size-4" />{pending ? "Reconciling…" : "Reconcile"}
+      </Button>
+      {state.message ? <p role="status" className={`basis-full text-sm ${state.ok ? "text-muted-foreground" : "text-destructive"}`}>{state.message}</p> : null}
+      {state.deliveries ? <div className="basis-full"><DeliveryTable deliveries={state.deliveries} /></div> : null}
+    </form>
+  );
+}
+
+function setDraftValue(draft: ProfileDraft, path: string, value: string): ProfileDraft {
+  if (path.startsWith("preview.")) {
+    const key = path.slice(8) as "applicationId" | "urlTemplate";
+    return { ...draft, preview: { ...draft.preview, [key]: value } };
+  }
+  if (path.startsWith("staging.")) {
+    const key = path.slice(8) as keyof ProfileDraft["staging"];
+    return { ...draft, staging: { ...draft.staging, [key]: value } };
+  }
+  if (path.startsWith("states.")) {
+    const key = path.slice(7) as keyof ProfileDraft["states"];
+    return { ...draft, states: { ...draft.states, [key]: value } };
+  }
+  return { ...draft, [path]: value };
+}
+
+/** Parameterized profile simulation and safe configuration-PR proposal. */
+function ProfileEditor({ configurationRepository }: { configurationRepository: string | null }) {
+  const [draft, setDraft] = useState<ProfileDraft>(EMPTY_PROFILE);
+  const [assertionsInput, setAssertionsInput] = useState("");
+  const [simulationState, simulationAction, simulationPending] = useActionState(simulateProfile, INITIAL);
+  const [proposalState, proposalAction, proposalPending] = useActionState(proposeWorkflowProfile, INITIAL);
+  const encoded = useMemo(() => JSON.stringify({ ...draft, staging: { ...draft.staging, ...(assertionsInput.trim() ? { requiredAssertions: assertionsInput.split(",").map((name) => name.trim()) } : {}) } }), [draft, assertionsInput]);
+  const simulation = simulationState.simulation;
+  const update = (path: string) => (event: ChangeEvent<HTMLInputElement>) => setDraft((current) => setDraftValue(current, path, event.target.value));
+
+  const downloadPlaybook = () => {
+    if (!simulation?.playbook) return;
+    const href = URL.createObjectURL(new Blob([simulation.playbook], { type: "text/markdown;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = href;
+    anchor.download = `${simulation.profile.repository.replace("/", "-")}-workflow-playbook.md`;
+    anchor.click();
+    URL.revokeObjectURL(href);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Profile simulator</CardTitle>
+        <CardDescription>Validate provider, Plane and state mappings with the bridge before opening a configuration PR.</CardDescription>
+        <p className="text-sm">Configuration PR destination: <strong>{configurationRepository ?? "Not configured"}</strong></p>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <form action={simulationAction} className="grid gap-4 md:grid-cols-2">
+          <input type="hidden" name="profile" value={encoded} />
+          {([
+            ["id", "Profile ID", "vm3k"], ["repository", "Repository", "apps3k-com/Venuemaster3000"],
+            ["workspaceSlug", "Plane workspace", "apps3k"], ["projectId", "Plane project ID", "UUID"],
+            ["projectIdentifier", "Plane identifier", "VM3K"], ["defaultBranch", "Default branch", "main"],
+            ["preview.applicationId", "Coolify application ID", "j389rmnj9pxyu4fem8cwflex"], ["preview.urlTemplate", "Preview URL template", "https://preview.example/pr/{number}"],
+            ["staging.workflow", "Staging workflow", "Promote Published Release Tag to Staging"], ["staging.artifactPrefix", "Staging artifact prefix", "staging-acceptance-"],
+            ["states.inProgress", "In Progress state", "In Progress"], ["states.inReview", "In Review state", "In Review"],
+            ["states.onStaging", "On Staging state", "On Staging"], ["states.readyForRelease", "Ready for Release state", "Ready for Release"],
+            ["states.done", "Done state", "Done"], ["states.cancelled", "Cancelled state", "Cancelled"],
+          ] as const).map(([path, label, placeholder]) => (
+            <div key={path} className="grid gap-2">
+              <Label htmlFor={`workflow-${path}`}>{label}</Label>
+              <Input id={`workflow-${path}`} value={path.startsWith("preview.") ? draft.preview[path.slice(8) as keyof typeof draft.preview] : path.startsWith("staging.") ? draft.staging[path.slice(8) as keyof typeof draft.staging] : path.startsWith("states.") ? draft.states[path.slice(7) as keyof typeof draft.states] : draft[path as keyof ProfileDraft] as string} onChange={update(path)} placeholder={placeholder} required />
+            </div>
+          ))}
+          <div className="grid gap-2">
+            <Label htmlFor="workflow-assertions">Required staging assertions (optional)</Label>
+            <Input id="workflow-assertions" value={assertionsInput} onChange={(event) => setAssertionsInput(event.target.value)} placeholder="http_smoke, image_revision" />
+            <p className="text-xs text-muted-foreground">Comma-separated checks produced by your acceptance workflow. Empty uses the five VM3K checks.</p>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="workflow-mode">Bridge mode</Label>
+            <Select value={draft.mode} onValueChange={(value) => setDraft((current) => ({ ...current, mode: value as WorkflowProfile["mode"] }))}>
+              <SelectTrigger id="workflow-mode"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="observe">observe</SelectItem><SelectItem value="full">full</SelectItem></SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-2"><Button type="submit" disabled={simulationPending}><Play className="size-4" />{simulationPending ? "Simulating…" : "Simulate live profile"}</Button></div>
+        </form>
+        {simulationState.message ? <p role="status" className={`text-sm ${simulationState.ok ? "text-muted-foreground" : "text-destructive"}`}>{simulationState.message}</p> : null}
+        {simulation ? (
+          <div className="space-y-3 rounded-md border p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-medium">Simulation {simulation.valid ? "passed" : "failed"}</p><p className="text-sm text-muted-foreground">Bridge decisions are shown below; Orchid did not evaluate or write Plane.</p></div><Button type="button" variant="outline" size="sm" onClick={downloadPlaybook}><Download className="size-4" />Download playbook</Button></div>
+            {simulation.errors.length ? <ul className="list-disc space-y-1 pl-5 text-sm text-destructive">{simulation.errors.map((error) => <li key={error}>{error}</li>)}</ul> : null}
+            {simulation.decisions.length ? <DecisionList decisions={simulation.decisions} /> : <p className="text-sm text-muted-foreground">The bridge returned no decisions.</p>}
+            {simulation.valid && simulation.proposedBinding ? (
+              <form action={proposalAction} className="flex flex-wrap items-end gap-3 border-t pt-4">
+                <input type="hidden" name="profile" value={JSON.stringify(simulation.profile)} />
+                <div className="grid gap-2"><Label htmlFor="primary-closing-reference">Primary closing reference</Label><Input id="primary-closing-reference" name="primaryClosingReference" placeholder="Closes A3KCL-123" required /></div>
+                <Button type="submit" disabled={proposalPending || !configurationRepository}><Send className="size-4" />{proposalPending ? "Opening PR…" : "Open configuration PR"}</Button>
+                <p className="basis-full text-xs text-muted-foreground">The PR merges only the proposed repository binding and preserves `todoDispatch` and every other binding.</p>
+                {proposalState.message ? <p role="status" className={`basis-full text-sm ${proposalState.ok ? "text-muted-foreground" : "text-destructive"}`}>{proposalState.message} {proposalState.prUrl ? <ExternalEvidenceLink className="underline" url={proposalState.prUrl}>View pull request</ExternalEvidenceLink> : null}</p> : null}
+              </form>
+            ) : null}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Full workflow control surface, intentionally displaying only bridge-returned evidence. */
+export function WorkflowControlPanel({ snapshots, configurationRepository }: { snapshots: WorkflowSnapshot[]; configurationRepository: string | null }) {
+  return (
+    <div className="space-y-6">
+      {snapshots.map((snapshot) => (
+        <Card key={snapshot.profile.id}>
+          <CardHeader>
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle>{snapshot.profile.repository}</CardTitle><CardDescription>{snapshot.profile.projectIdentifier} · {snapshot.profile.defaultBranch} · Coolify {snapshot.profile.preview.applicationId}</CardDescription></div><Badge variant={snapshot.profile.mode === "full" ? "secondary" : "outline"}>{snapshot.profile.mode}</Badge></div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {snapshot.error ? <p className="text-sm text-destructive">Could not read bridge deliveries: {snapshot.error}</p> : <><p className="text-xs text-muted-foreground">Last reconciled: {stamp(snapshot.lastReconciledAt)}</p><DeliveryTable deliveries={snapshot.deliveries} /></>}
+            <Separator />
+            <ReconcilePanel repository={snapshot.profile.repository} />
+          </CardContent>
+        </Card>
+      ))}
+      <ProfileEditor configurationRepository={configurationRepository} />
+    </div>
+  );
+}

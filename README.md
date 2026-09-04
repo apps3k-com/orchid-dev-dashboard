@@ -53,12 +53,18 @@ Variables RW, Members R, Metadata R**, with user authorization (OAuth) enabled. 
 
 ## Development
 
+Use the [local development guide](docs/wiki/Development-Setup.md) for the OrbStack database,
+pinned Node/1Password tooling, FIFO-safe worktree and process-only secret injection.
+
 ```bash
-pnpm install
-pnpm prisma:dev        # apply migrations to a local Postgres (set DATABASE_URL)
-pnpm dev               # http://localhost:3000
-pnpm check             # lint + typecheck
-pnpm test              # vitest
+python3 scripts/setup-dev-tools.py
+export PATH="$HOME/.cache/orchid-tools/node-v22.23.2-darwin-arm64/bin:$PATH"
+pnpm install --frozen-lockfile
+pnpm db:up
+pnpm db:migrate
+pnpm dev:env
+pnpm check
+pnpm test
 ```
 
 ## Contributing

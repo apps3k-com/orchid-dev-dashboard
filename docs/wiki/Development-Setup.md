@@ -7,61 +7,84 @@ the host** via `pnpm dev:env` (Next.js + its in-process graphile-worker), and **
 This is the *dev* stack. The shipped self-host bundle is `docker-compose.yml` (app **and** db in
 containers) — see the Wiki's deployment notes; don't confuse the two.
 
-## Prerequisites
+## Workstation setup (macOS arm64)
 
-- **OrbStack** (or any Docker engine) — provides the container runtime for Postgres.
-- **Node 22** + **pnpm 10** (`corepack enable`), and **`op`** (1Password CLI ≥ 2.30).
-- **`.env.local`** in the repo root with a least-privilege 1Password **service account** token and the
-  environment id — exactly:
-  ```
-  OP_SERVICE_ACCOUNT_TOKEN=<service-account token, read access to the app-orchid-local vault + env>
-  OP_EN_UUID=<the 1Password Environment id>
-  EMAIL=<shadcnstudio account email>      # build/dev-time only (shadcn CLI)
-  LICENSE_KEY=<shadcnstudio license key>  # build/dev-time only
-  ```
-  `.env.local` is git-ignored. The service account can **read** the Environment but cannot write it.
+Use a development worktree without a `.env` FIFO. The original repository's mounted `.env`
+remains untouched. The launcher finds the original repository through Git's common directory
+and reads only its regular `.env.local` bootstrap file; override this with
+`ORCHID_BOOTSTRAP_ENV_FILE` when needed. That file only needs `OP_SERVICE_ACCOUNT_TOKEN`.
+The default Environment is `did6rpqt5bxv3wzep6a47qtc7u`; `OP_EN_UUID` can override it.
 
-## Secrets model
-
-- App secrets (GitHub App id/key/client/secret, `SESSION_SECRET`, `APP_ENCRYPTION_KEY`, …) live as an
-  item (`orchid-app`) in the **`app-orchid-local`** vault.
-- A 1Password **Environment** (`OP_EN_UUID`) maps each app variable to a vault reference, plus the
-  non-secret local literals (`DATABASE_URL` → the OrbStack DB on `:5433`, `APP_URL`,
-  `ORCHID_LLM_ADMINS`, …).
-- `pnpm dev:env` runs `op run --environment "$OP_EN_UUID" -- next dev`, resolving everything at launch.
-- The **Anthropic BYOK key** is *not* an env var — enter it once in the app (Settings → AI providers).
-  It is encrypted and stored in Postgres, so it survives restarts.
-
-## The durable database (OrbStack)
-
-`docker-compose.dev.yml` defines a single `postgres:16-alpine` service with a persistent named volume
-(`orchid-dev-db`), `restart: unless-stopped`, and the port published on **`:5433`** (so it coexists
-with a Homebrew Postgres on `:5432`).
-
-| Command | What it does |
-|---|---|
-| `pnpm db:up` | Start Postgres in OrbStack, wait until healthy (data persists across restarts). |
-| `pnpm db:migrate` | Apply Prisma migrations to `:5433`. |
-| `pnpm db:down` | Stop the container (keeps the data volume). |
-| `pnpm db:reset` | Drop the volume, recreate, re-migrate (fresh schema). |
-
-## First run
+Run once from the worktree:
 
 ```bash
-pnpm install
-pnpm db:up          # durable Postgres in OrbStack (:5433)
-pnpm db:migrate     # create the schema
-pnpm dev:env        # app + worker on http://localhost:3000 (secrets from 1Password)
+python3 scripts/setup-dev-tools.py
+export PATH="$HOME/.cache/orchid-tools/node-v22.23.2-darwin-arm64/bin:$PATH"
+corepack pnpm install --frozen-lockfile
+pnpm db:up
+pnpm db:migrate
 ```
 
-Then, in the app:
+The installer keeps Node **22.23.2** and the signed 1Password CLI **2.39.1-beta.01** in
+`~/.cache/orchid-tools/`. The pinned beta supports `op run --environment`; stable CLI 2.39.0
+does not. System-wide tools remain unchanged. The package manager is pinned to pnpm 10.15.0.
 
-1. **Log in** with the GitHub App (member-gated OAuth).
-2. **Refresh data** on the Dashboard — the worker's `sync:all` populates repos/PRs/projects.
-3. **Settings → AI providers** — paste the Anthropic key (stored encrypted in the durable DB).
+## Start and stop
 
-Because the database is persistent, repos, audits, and the provider key stay put between sessions —
-no re-sync each time.
+```bash
+export PATH="$HOME/.cache/orchid-tools/node-v22.23.2-darwin-arm64/bin:$PATH"
+pnpm db:up
+ORCHID_WORKFLOW_ADMINS=apps3000 \
+WORKFLOW_INFRA_REPOSITORY=apps3k-com/hetzner-cloud \
+WORKFLOW_BRIDGE_URL=http://127.0.0.1:8789 pnpm dev:env
+```
+
+Next.js and its background worker run on **http://localhost:3000**. Stop the host process with
+Ctrl-C; `pnpm db:down` stops Postgres while preserving its named volume. Do not use `db:reset`
+for routine development: it deletes the local database volume.
+
+Postgres 16 runs as `orchid-dev-db`, bound only to **127.0.0.1:5433**. Compose uses
+`--env-file /dev/null`, so it does not read the original `.env` pipe. All migration and application
+commands target the local `orchid` database; the launcher overrides database and app URL after
+1Password injection. App secrets live only in the process environment. The bootstrap service
+account token is removed before Next.js starts.
+
+The current worktree is `/Users/soundandstuff/coding/apps3k/orchid-dev-dashboard-workflow`.
+Its persistent volume is `orchid-dev-dashboard-workflow_orchid-dev-db`. Seventeen existing
+Prisma migrations were applied on 2026-09-04 without resetting data.
+
+## Local bridge and workflow control
+
+The separate bridge runs in the infra worktree. Its local launcher **always** enforces observe
+mode and disables the Todo dispatcher. Create its database once if absent, using the local
+Postgres administrator, then start it in a separate terminal:
+
+```bash
+# Run from the Orchid worktree. Credentials are never written to a generated .env file.
+export INFRA_WORKTREE=/path/to/your/hetzner-cloud-worktree
+export INFRA_BOOTSTRAP_ENV_FILE=/path/to/original/hetzner-cloud/.env.local
+WORKFLOW_BRIDGE_URL=http://127.0.0.1:8789 bash scripts/dev-env.sh python3 \
+  "$INFRA_WORKTREE/scripts/plane-bridge-local.py"
+```
+
+The `plane_github_bridge` database already exists in the local Postgres instance. Bridge dependencies
+are installed with `npm ci` in `hetzner-cloud-workflow/configs/plane-github`. The infra launcher's
+scoped bootstrap is read by the infra launcher from the original infra `.env.local`
+(`INFRA_BOOTSTRAP_ENV_FILE` override). Orchid's wrapper supplies the purpose-separated
+local API tokens to that launcher.
+It uses the authenticated GitHub CLI for read access and the canonical infra 1Password items for
+Plane and Coolify. With a loopback bridge URL, both local processes derive purpose-separated API
+tokens from Orchid's injected session secret. Remote bridge deployments require independently
+provisioned read/operator tokens; this local derivation is never used for them.
+
+Log in with GitHub, refresh data on the dashboard, then open **Workflows**. OAuth requires the
+human's browser session. `ORCHID_WORKFLOW_ADMINS` is a comma-separated GitHub login allowlist;
+`apps3000` is the verified local account. Configuration proposals also require organization
+membership and access to the configured infrastructure repository. See
+[Workflow control](../workflow-control.md) for simulation, delivery evidence and PR proposals.
+
+The Anthropic BYOK key is optional for this workflow; AI audits use the separately configured
+provider key stored encrypted in the durable local database.
 
 ## Fleet-Audit end-to-end
 
