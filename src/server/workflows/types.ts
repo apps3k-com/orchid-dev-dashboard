@@ -45,7 +45,7 @@ export type WorkflowDelivery = {
     draft: boolean;
     merged: boolean;
   } | null;
-  preview: { status: string; sha: string; url: string; deploymentId: string } | null;
+  preview: { status: string; sha: string; url: string; deploymentId: string; deploymentUrl?: string | null } | null;
   staging: { status: string; sha: string; releaseTag: string; runId: number; url: string } | null;
   release: { tag: string; sha: string; url: string; publishedAt: string } | null;
   /** Read-only GitHub checks. They inform operators but never gate bridge transitions. */

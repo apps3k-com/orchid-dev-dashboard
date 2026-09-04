@@ -124,7 +124,8 @@ function DeliveryTable({ deliveries }: { deliveries: WorkflowDelivery[] }) {
                   <div className="space-y-1 text-xs">
                     <Badge variant={evidenceBadge(delivery.preview.status)}>{delivery.preview.status}</Badge>
                     <p>{shortSha(delivery.preview.sha)}</p>
-                    <a className="underline" href={delivery.preview.url} target="_blank" rel="noreferrer">deployment {delivery.preview.deploymentId}</a>
+                    <a className="underline" href={delivery.preview.url} target="_blank" rel="noreferrer">Open preview</a>
+                    {delivery.preview.deploymentUrl ? <a className="block underline" href={delivery.preview.deploymentUrl} target="_blank" rel="noreferrer">Coolify deployment {delivery.preview.deploymentId}</a> : <p>deployment {delivery.preview.deploymentId}</p>}
                   </div>
                 ) : "—"}
               </TableCell>
