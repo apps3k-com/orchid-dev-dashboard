@@ -7,7 +7,7 @@ Configure these server-only values through the normal 1Password-backed environme
 
 - `WORKFLOW_BRIDGE_URL` — fixed bridge origin, without `/api/v1`.
 - `BRIDGE_READ_TOKEN` — permits profile, delivery, and simulation requests.
-- `BRIDGE_OPERATOR_TOKEN` — required only for an explicit reconciliation with `apply=true`.
+- `BRIDGE_OPERATOR_TOKEN` — required for every explicit reconciliation, including `apply=false`.
 - `ORCHID_WORKFLOW_ADMINS` — comma-separated GitHub logins allowed to use this screen.
 - `WORKFLOW_INFRA_REPOSITORY` — managed `owner/name` of the infrastructure repository holding
   `configs/plane-github/config.json`.

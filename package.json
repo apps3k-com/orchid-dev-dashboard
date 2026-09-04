@@ -3,7 +3,7 @@
   "version": "1.2.0",
   "private": true,
   "packageManager": "pnpm@10.15.0",
-  "description": "Orchid — open-source multi-repo & GitHub-Projects mission control",
+  "description": "Orchid \u2014 open-source multi-repo & GitHub-Projects mission control",
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
@@ -18,12 +18,13 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:dev": "prisma migrate dev",
-    "db:up": "docker compose -f docker-compose.dev.yml up -d --wait",
-    "db:down": "docker compose -f docker-compose.dev.yml down",
-    "db:reset": "docker compose -f docker-compose.dev.yml down -v && docker compose -f docker-compose.dev.yml up -d --wait && pnpm run db:migrate",
-    "db:migrate": "DATABASE_URL=postgres://orchid:orchid@localhost:5433/orchid prisma migrate deploy",
+    "db:up": "docker compose --env-file /dev/null -f docker-compose.dev.yml up -d --wait",
+    "db:down": "docker compose --env-file /dev/null -f docker-compose.dev.yml down",
+    "db:reset": "docker compose --env-file /dev/null -f docker-compose.dev.yml down -v && docker compose --env-file /dev/null -f docker-compose.dev.yml up -d --wait && pnpm run db:migrate",
+    "db:migrate": "DATABASE_URL=postgres://orchid:orchid@127.0.0.1:5433/orchid prisma migrate deploy",
     "docstring:coverage": "node scripts/docstring-coverage.mjs",
-    "key:rotate": "node scripts/rotate-encryption-key.mjs"
+    "key:rotate": "node scripts/rotate-encryption-key.mjs",
+    "dev:tools": "python3 scripts/setup-dev-tools.py"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
