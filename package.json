@@ -1,9 +1,9 @@
 {
   "name": "orchid-dev-dashboard",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "packageManager": "pnpm@10.15.0",
-  "description": "Orchid \u2014 open-source multi-repo & GitHub-Projects mission control",
+  "description": "Orchid — open-source multi-repo & GitHub-Projects mission control",
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
