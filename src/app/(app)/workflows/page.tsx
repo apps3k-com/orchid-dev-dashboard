@@ -38,7 +38,8 @@ export default async function WorkflowsPage() {
   return (
     <div className="space-y-6">
       <div><h1 className="text-2xl font-semibold tracking-tight">Workflow control</h1><p className="text-sm text-muted-foreground">Evidence, reconciliation and configuration proposals for the single GitHub-to-Plane bridge writer.</p></div>
-      {error ? <Card><CardContent className="p-6 text-sm text-destructive">Could not read workflow profiles: {error}</CardContent></Card> : snapshots.length === 0 ? <Card><CardContent className="p-6 text-sm text-muted-foreground">The bridge returned no configured workflow profiles.</CardContent></Card> : <WorkflowControlPanel snapshots={snapshots} />}
+      {error ? <Card><CardContent className="p-6 text-sm text-destructive">Could not read workflow profiles: {error}</CardContent></Card> : snapshots.length === 0 ? <Card><CardContent className="p-6 text-sm text-muted-foreground">The bridge returned no configured workflow profiles.</CardContent></Card> : null}
+      <WorkflowControlPanel snapshots={snapshots} configurationRepository={process.env.WORKFLOW_INFRA_REPOSITORY ?? null} />
     </div>
   );
 }

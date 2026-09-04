@@ -222,7 +222,7 @@ function setDraftValue(draft: ProfileDraft, path: string, value: string): Profil
 }
 
 /** Parameterized profile simulation and safe configuration-PR proposal. */
-function ProfileEditor() {
+function ProfileEditor({ configurationRepository }: { configurationRepository: string | null }) {
   const [draft, setDraft] = useState<ProfileDraft>(EMPTY_PROFILE);
   const [assertionsInput, setAssertionsInput] = useState("");
   const [simulationState, simulationAction, simulationPending] = useActionState(simulateProfile, INITIAL);
@@ -246,6 +246,7 @@ function ProfileEditor() {
       <CardHeader>
         <CardTitle>Profile simulator</CardTitle>
         <CardDescription>Validate provider, Plane and state mappings with the bridge before opening a configuration PR.</CardDescription>
+        <p className="text-sm">Configuration PR destination: <strong>{configurationRepository ?? "Not configured"}</strong></p>
       </CardHeader>
       <CardContent className="space-y-5">
         <form action={simulationAction} className="grid gap-4 md:grid-cols-2">
@@ -289,7 +290,7 @@ function ProfileEditor() {
               <form action={proposalAction} className="flex flex-wrap items-end gap-3 border-t pt-4">
                 <input type="hidden" name="profile" value={JSON.stringify(simulation.profile)} />
                 <div className="grid gap-2"><Label htmlFor="primary-closing-reference">Primary closing reference</Label><Input id="primary-closing-reference" name="primaryClosingReference" placeholder="Closes A3KCL-123" required /></div>
-                <Button type="submit" disabled={proposalPending}><Send className="size-4" />{proposalPending ? "Opening PR…" : "Open configuration PR"}</Button>
+                <Button type="submit" disabled={proposalPending || !configurationRepository}><Send className="size-4" />{proposalPending ? "Opening PR…" : "Open configuration PR"}</Button>
                 <p className="basis-full text-xs text-muted-foreground">The PR merges only the proposed repository binding and preserves `todoDispatch` and every other binding.</p>
                 {proposalState.message ? <p role="status" className={`basis-full text-sm ${proposalState.ok ? "text-muted-foreground" : "text-destructive"}`}>{proposalState.message} {proposalState.prUrl ? <a className="underline" href={proposalState.prUrl} target="_blank" rel="noreferrer">View pull request</a> : null}</p> : null}
               </form>
@@ -302,7 +303,7 @@ function ProfileEditor() {
 }
 
 /** Full workflow control surface, intentionally displaying only bridge-returned evidence. */
-export function WorkflowControlPanel({ snapshots }: { snapshots: WorkflowSnapshot[] }) {
+export function WorkflowControlPanel({ snapshots, configurationRepository }: { snapshots: WorkflowSnapshot[]; configurationRepository: string | null }) {
   return (
     <div className="space-y-6">
       {snapshots.map((snapshot) => (
@@ -317,7 +318,7 @@ export function WorkflowControlPanel({ snapshots }: { snapshots: WorkflowSnapsho
           </CardContent>
         </Card>
       ))}
-      <ProfileEditor />
+      <ProfileEditor configurationRepository={configurationRepository} />
     </div>
   );
 }
