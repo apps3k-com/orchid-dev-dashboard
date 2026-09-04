@@ -32,7 +32,7 @@ const EMPTY_PROFILE: ProfileDraft = {
   projectIdentifier: "",
   defaultBranch: "main",
   mode: "observe",
-  preview: { provider: "coolify", applicationId: "", urlTemplate: "https://preview.example.invalid/pr/{number}" },
+  preview: { provider: "coolify", applicationId: "", urlTemplate: "https://pr-{{pr_id}}.preview.example.invalid" },
   staging: { workflow: "Promote Published Release Tag to Staging", artifactPrefix: "staging-acceptance-" },
   states: {
     inProgress: "In Progress",
