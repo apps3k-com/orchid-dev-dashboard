@@ -4,15 +4,22 @@ import { repoClient } from "@/server/github/writeback";
 export const WORKFLOW_CONFIG_PATH = "configs/plane-github/config.json";
 
 type WorkflowConfig = { bindings: Array<Record<string, unknown>>; todoDispatch?: unknown; [key: string]: unknown };
+export type WorkflowConfigSnapshot = { config: WorkflowConfig; headSha: string };
 
 /** Read the canonical workflow config from the exact default-branch snapshot used for a proposed PR. */
-export async function readWorkflowConfig(repo: Repo): Promise<WorkflowConfig> {
+export async function readWorkflowConfig(repo: Repo): Promise<WorkflowConfigSnapshot> {
   const { octokit, owner, name, base } = await repoClient(repo);
+  const ref = await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", {
+    owner,
+    repo: name,
+    ref: `heads/${base}`,
+  });
+  const headSha = ref.data.object.sha;
   const response = await octokit.request("GET /repos/{owner}/{repo}/contents/{path}", {
     owner,
     repo: name,
     path: WORKFLOW_CONFIG_PATH,
-    ref: base,
+    ref: headSha,
   });
   if (Array.isArray(response.data) || response.data.type !== "file" || !response.data.content) {
     throw new Error("Workflow configuration is not a readable file on the default branch.");
@@ -26,7 +33,7 @@ export async function readWorkflowConfig(repo: Repo): Promise<WorkflowConfig> {
   if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as { bindings?: unknown }).bindings)) {
     throw new Error("Workflow configuration has no bindings array.");
   }
-  return parsed as WorkflowConfig;
+  return { config: parsed as WorkflowConfig, headSha };
 }
 
 /** Merge exactly one evaluated binding by repository identity, preserving all other configuration. */

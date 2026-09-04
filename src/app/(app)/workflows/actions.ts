@@ -139,7 +139,7 @@ export async function proposeWorkflowProfile(
     const repo = await prisma.repo.findUnique({ where: { nameWithOwner: infraRepository }, include: { org: true } });
     if (!repo) return { ok: false, message: "Workflow infrastructure repository is not available in Orchid." };
     if (!(await isOrgMember(repo.org, user.login))) return { ok: false, message: "You are not a member of the workflow infrastructure organization." };
-    const current = await readWorkflowConfig(repo);
+    const { config: current, headSha } = await readWorkflowConfig(repo);
     const next = mergeWorkflowBinding(current, simulation.proposedBinding);
     const { prUrl } = await proposeFiles(repo, [{ path: WORKFLOW_CONFIG_PATH, content: `${JSON.stringify(next, null, 2)}\n` }], {
       branchPrefix: "orchid/workflow-profile",
@@ -150,6 +150,7 @@ export async function proposeWorkflowProfile(
         `Adds the bridge-validated workflow profile for \`${profile.repository}\` through Orchid.\n\n` +
         "This PR changes configuration only. Merging it is required before the bridge can activate the profile.",
       mustExist: true,
+      expectedBaseSha: headSha,
     });
     return { ok: true, message: "Opened a configuration pull request; the profile is not active until that PR merges.", prUrl, simulation };
   } catch (error) {

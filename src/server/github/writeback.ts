@@ -37,6 +37,8 @@ export async function proposeFiles(
     body: string;
     commitMessage: string;
     mustExist?: boolean;
+    /** Reject before any remote write when the caller's reviewed default-branch snapshot is stale. */
+    expectedBaseSha?: string;
   },
 ): Promise<{ prUrl: string }> {
   const { octokit, owner, name, base } = await repoClient(repo);
@@ -50,6 +52,9 @@ export async function proposeFiles(
       ref: `heads/${base}`,
     });
     const headSha = ref.data.object.sha;
+    if (opts.expectedBaseSha && opts.expectedBaseSha !== headSha) {
+      throw new Error("Default branch changed while preparing this proposal; re-simulate and retry.");
+    }
 
     // Resolve each file's current blob sha at the head BEFORE any write, so `mustExist` fails
     // pre-write (no orphan branch) and the PUTs carry the snapshot-correct sha.

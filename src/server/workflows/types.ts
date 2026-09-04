@@ -48,6 +48,8 @@ export type WorkflowDelivery = {
   preview: { status: string; sha: string; url: string; deploymentId: string } | null;
   staging: { status: string; sha: string; releaseTag: string; runId: number; url: string } | null;
   release: { tag: string; sha: string; url: string; publishedAt: string } | null;
+  /** Read-only GitHub checks. They inform operators but never gate bridge transitions. */
+  checks?: Array<{ name: string; status: string; conclusion: string | null; url: string | null }>;
   decisions: WorkflowDecision[];
   updatedAt: string;
 };

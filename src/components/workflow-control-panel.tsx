@@ -103,6 +103,19 @@ function DeliveryTable({ deliveries }: { deliveries: WorkflowDelivery[] }) {
                     <p>head {shortSha(delivery.pullRequest.headSha)}</p>
                     <p>merge {shortSha(delivery.pullRequest.mergeSha)}</p>
                     <Badge variant={delivery.pullRequest.draft ? "outline" : "secondary"}>{delivery.pullRequest.draft ? "draft" : delivery.pullRequest.merged ? "merged" : "open"}</Badge>
+                    {delivery.checks?.length ? (
+                      <details className="pt-1 text-muted-foreground">
+                        <summary className="cursor-pointer">{delivery.checks.length} CI / review check{delivery.checks.length === 1 ? "" : "s"}</summary>
+                        <ul className="mt-1 space-y-1">
+                          {delivery.checks.map((check, index) => (
+                            <li key={`${check.name}-${index}`} className="flex flex-wrap items-center gap-1">
+                              {check.url ? <a className="underline" href={check.url} target="_blank" rel="noreferrer">{check.name}</a> : <span>{check.name}</span>}
+                              <Badge variant={evidenceBadge(check.conclusion ?? check.status)}>{check.conclusion ?? check.status}</Badge>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
                   </div>
                 ) : "—"}
               </TableCell>
