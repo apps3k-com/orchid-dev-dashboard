@@ -77,5 +77,12 @@ export async function reconcileWorkflow(input: {
   apply?: boolean;
 }): Promise<{ schemaVersion: 1; mode: "observe" | "full"; deliveries: WorkflowDelivery[] }> {
   // Reconciliation is an explicit operator action even when the selected bridge profile is observe-only.
-  return request("/reconcile", { method: "POST", body: JSON.stringify(input) }, true);
+  const result = await request<unknown>("/reconcile", { method: "POST", body: JSON.stringify(input) }, true);
+  if (!result || typeof result !== "object" ||
+      (result as { schemaVersion?: unknown }).schemaVersion !== 1 ||
+      !["observe", "full"].includes(String((result as { mode?: unknown }).mode)) ||
+      !Array.isArray((result as { deliveries?: unknown }).deliveries)) {
+    throw new Error("Workflow bridge returned an unsupported reconciliation response.");
+  }
+  return result as { schemaVersion: 1; mode: "observe" | "full"; deliveries: WorkflowDelivery[] };
 }

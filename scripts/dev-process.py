@@ -20,7 +20,7 @@ def main():
         key = env['SESSION_SECRET'].encode()
         for name, purpose in [('BRIDGE_READ_TOKEN', b'orchid-local-bridge-read-v1'),
                               ('BRIDGE_OPERATOR_TOKEN', b'orchid-local-bridge-operator-v1')]:
-            env.setdefault(name, hmac.new(key, purpose, hashlib.sha256).hexdigest())
+            env[name] = hmac.new(key, purpose, hashlib.sha256).hexdigest()
     os.execvpe(sys.argv[1], sys.argv[1:], env)
 
 

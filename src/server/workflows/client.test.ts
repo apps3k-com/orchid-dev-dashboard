@@ -32,4 +32,17 @@ describe("workflow bridge client", () => {
     await reconcileWorkflow({ repository: "apps3k-com/Venuemaster3000", apply: false });
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer operator-token");
   });
+
+  it("rejects a queued response where synchronous delivery evidence is required", async () => {
+    process.env.WORKFLOW_BRIDGE_URL = "http://bridge.internal:8789";
+    process.env.BRIDGE_OPERATOR_TOKEN = "operator-token";
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      schemaVersion: 1,
+      status: "queued",
+      mode: "full",
+    }), { status: 202 }));
+
+    await expect(reconcileWorkflow({ repository: "apps3k-com/Venuemaster3000" }))
+      .rejects.toThrow("unsupported reconciliation response");
+  });
 });
