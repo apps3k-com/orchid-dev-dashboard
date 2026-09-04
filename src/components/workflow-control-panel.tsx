@@ -181,6 +181,10 @@ function ReconcilePanel({ repository }: { repository: string }) {
       <input type="hidden" name="repository" value={repository} />
       <input type="hidden" name="apply" value={apply ? "true" : "false"} />
       <div className="grid gap-2">
+        <Label htmlFor={`items-${repository}`}>Work items (optional)</Label>
+        <Input id={`items-${repository}`} name="workItems" placeholder="VM3K-184, VM3K-187" className="w-52" />
+      </div>
+      <div className="grid gap-2">
         <Label htmlFor={`pr-${repository}`}>PR hint (optional)</Label>
         <Input id={`pr-${repository}`} name="pullRequest" inputMode="numeric" placeholder="1545" className="w-28" />
       </div>
@@ -220,9 +224,10 @@ function setDraftValue(draft: ProfileDraft, path: string, value: string): Profil
 /** Parameterized profile simulation and safe configuration-PR proposal. */
 function ProfileEditor() {
   const [draft, setDraft] = useState<ProfileDraft>(EMPTY_PROFILE);
+  const [assertionsInput, setAssertionsInput] = useState("");
   const [simulationState, simulationAction, simulationPending] = useActionState(simulateProfile, INITIAL);
   const [proposalState, proposalAction, proposalPending] = useActionState(proposeWorkflowProfile, INITIAL);
-  const encoded = useMemo(() => JSON.stringify(draft), [draft]);
+  const encoded = useMemo(() => JSON.stringify({ ...draft, staging: { ...draft.staging, ...(assertionsInput.trim() ? { requiredAssertions: assertionsInput.split(",").map((name) => name.trim()) } : {}) } }), [draft, assertionsInput]);
   const simulation = simulationState.simulation;
   const update = (path: string) => (event: ChangeEvent<HTMLInputElement>) => setDraft((current) => setDraftValue(current, path, event.target.value));
 
@@ -260,6 +265,11 @@ function ProfileEditor() {
               <Input id={`workflow-${path}`} value={path.startsWith("preview.") ? draft.preview[path.slice(8) as keyof typeof draft.preview] : path.startsWith("staging.") ? draft.staging[path.slice(8) as keyof typeof draft.staging] : path.startsWith("states.") ? draft.states[path.slice(7) as keyof typeof draft.states] : draft[path as keyof ProfileDraft] as string} onChange={update(path)} placeholder={placeholder} required />
             </div>
           ))}
+          <div className="grid gap-2">
+            <Label htmlFor="workflow-assertions">Required staging assertions (optional)</Label>
+            <Input id="workflow-assertions" value={assertionsInput} onChange={(event) => setAssertionsInput(event.target.value)} placeholder="http_smoke, image_revision" />
+            <p className="text-xs text-muted-foreground">Comma-separated checks produced by your acceptance workflow. Empty uses the five VM3K checks.</p>
+          </div>
           <div className="grid gap-2">
             <Label htmlFor="workflow-mode">Bridge mode</Label>
             <Select value={draft.mode} onValueChange={(value) => setDraft((current) => ({ ...current, mode: value as WorkflowProfile["mode"] }))}>

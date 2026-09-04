@@ -8,7 +8,7 @@ export type WorkflowProfile = {
   defaultBranch: string;
   mode: "observe" | "full";
   preview: { provider: "coolify"; applicationId: string; urlTemplate: string };
-  staging: { workflow: string; artifactPrefix: string };
+  staging: { workflow: string; artifactPrefix: string; requiredAssertions?: string[] };
   states: {
     inProgress: string;
     inReview: string;

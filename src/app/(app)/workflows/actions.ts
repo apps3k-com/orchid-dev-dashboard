@@ -25,7 +25,7 @@ const profileSchema = z.object({
     applicationId: z.string().min(1).max(160),
     urlTemplate: z.string().url().max(1000),
   }),
-  staging: z.object({ workflow: z.string().min(1).max(200), artifactPrefix: z.string().min(1).max(200) }),
+  staging: z.object({ workflow: z.string().min(1).max(200), artifactPrefix: z.string().min(1).max(200), requiredAssertions: z.array(z.string().trim().min(1)).min(1).optional() }),
   states: z.object({
     inProgress: z.string().min(1).max(120),
     inReview: z.string().min(1).max(120),
@@ -97,6 +97,9 @@ export async function reconcileProfile(
   const pullRequestRaw = String(formData.get("pullRequest") ?? "").trim();
   const promotionRunRaw = String(formData.get("promotionRunId") ?? "").trim();
   const apply = formData.get("apply") === "true";
+  const workItemsRaw = String(formData.get("workItems") ?? "").trim();
+  const workItems = workItemsRaw ? workItemsRaw.split(",").map((item) => item.trim()) : undefined;
+  if (workItems?.some((item) => !/^[A-Z][A-Z0-9]*-[1-9][0-9]*$/.test(item))) return { ok: false, message: "Use work item identifiers separated by commas, for example VM3K-184, VM3K-187." };
   const pullRequest = pullRequestRaw ? Number(pullRequestRaw) : undefined;
   const promotionRunId = promotionRunRaw ? Number(promotionRunRaw) : undefined;
   if ((pullRequest !== undefined && (!Number.isSafeInteger(pullRequest) || pullRequest < 1)) ||
@@ -104,7 +107,7 @@ export async function reconcileProfile(
     return { ok: false, message: "Pull request and promotion run identifiers must be positive integers." };
   }
   try {
-    const result = await reconcileWorkflow({ repository, pullRequest, promotionRunId, apply });
+    const result = await reconcileWorkflow({ repository, workItems, pullRequest, promotionRunId, apply });
     return {
       ok: true,
       message: result.mode === "full" ? "Bridge reconciliation completed in full mode." : "Bridge reconciliation completed in observe mode.",
