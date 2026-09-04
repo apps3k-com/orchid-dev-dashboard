@@ -29,7 +29,7 @@ describe("mergeWorkflowBinding", () => {
   });
 
   it("rejects an ambiguous existing repository binding", () => {
-    expect(() => mergeWorkflowBinding({ bindings: [{ repository: "acme/widgets" }, { repository: "acme/widgets" }] }, { repository: "acme/widgets" })).toThrow(/duplicate bindings/);
+    expect(() => mergeWorkflowBinding({ bindings: [{ repository: "Acme/Widgets" }, { repository: "acme/widgets" }] }, { repository: "acme/widgets" })).toThrow(/duplicate bindings/);
   });
 });
 

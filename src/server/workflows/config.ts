@@ -43,10 +43,12 @@ export function mergeWorkflowBinding(
 ): WorkflowConfig {
   const repository = proposedBinding.repository;
   if (typeof repository !== "string" || !repository) throw new Error("Bridge proposed a binding without a repository identity.");
-  const matches = current.bindings.filter((binding) => binding.repository === repository).length;
+  const sameRepository = (binding: Record<string, unknown>) =>
+    typeof binding.repository === "string" && binding.repository.toLowerCase() === repository.toLowerCase();
+  const matches = current.bindings.filter(sameRepository).length;
   if (matches > 1) throw new Error("Workflow configuration has duplicate bindings for the proposed repository.");
   const nextBindings = matches === 1
-    ? current.bindings.map((binding) => binding.repository === repository ? proposedBinding : binding)
+    ? current.bindings.map((binding) => sameRepository(binding) ? proposedBinding : binding)
     : [...current.bindings, proposedBinding];
   return { ...current, bindings: nextBindings };
 }
