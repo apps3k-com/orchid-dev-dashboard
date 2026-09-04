@@ -48,6 +48,7 @@ describe("workflow bridge client", () => {
       schemaVersion: 1,
       status: "queued",
       mode: "full",
+      deliveries: [],
     }), { status: 202 }));
 
     await expect(reconcileWorkflow({ repository: "apps3k-com/Venuemaster3000" }))
