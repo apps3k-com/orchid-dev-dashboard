@@ -58,7 +58,7 @@ body:
       description: Product this request relates to (used for cross-repo boards).
       options:
         # >>> product-options — generated from the PRODUCTS org variable by the issue-form-options-sync workflow; do not edit by hand
-        - "n/a"
+        - "WMSMaster Tuftinglove"
         # <<< product-options
   - type: input
     id: links
